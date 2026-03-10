@@ -193,10 +193,19 @@ given:   / setup:   Setup — create objects, configure mocks
 when:                      Exercise — call the method under test
 then:                      Verify — assertions and mock verifications
 expect:                    Combined when+then for simple cases
-where:                     Data table for parameterized tests
+where:                     Data table for parameterized tests (MUST be last block)
 cleanup:                   Teardown — release resources
 and:                       Continue any block for readability
 ```
+
+**Block frequency (Kapelonis):** `when/then` appear in ~99% of tests, `given` in ~85%, `where` in ~40%, `expect` in ~20%, `cleanup` in ~5%.
+
+### Spock Lifecycle
+
+- `setup()` / `cleanup()` — run before/after **each** test method (including each `where:` iteration)
+- `setupSpec()` / `cleanupSpec()` — run once before/after the **entire** Spec class
+- `@Shared` fields — survive between test methods (use sparingly, typically for expensive resources)
+- Each `where:` row spawns a separate test run with its own `setup()`/`cleanup()` cycle
 
 ### 6.2 JUnit 5 (Kotlin): Arrange-Act-Assert
 
@@ -541,7 +550,51 @@ every { searchService.find(any()) } returns listOf(TaxCode("1"))
 verify(exactly = 1) { eventPublisher.publish(match { it is OrderPlaced }) }
 ```
 
-### 10.5 Mock Hygiene
+### 10.5 Advanced Spock Stubbing Patterns (Kapelonis)
+
+**Sequential responses** — return different values on successive calls:
+```groovy
+// Using >>> (triple right-shift) with a list
+inventory.isEmpty() >>> [false, true]
+
+// Or chain with >> for individual responses
+inventory.isProductAvailable("bravia", _) >>> true >> false
+```
+
+**Argument-based differentiation** — different response per argument:
+```groovy
+inventory.isProductAvailable("bravia", 1) >> true
+inventory.isProductAvailable("panasonic", 1) >> false
+```
+
+**Wildcard matching** with `_` (underscore):
+```groovy
+// Match any single argument
+inventory.isProductAvailable(_, 1) >> true
+
+// Match all arguments
+inventory.isProductAvailable(_, _) >> true
+```
+
+**Closure-based dynamic response** — execute code when stub is called:
+```groovy
+// Throw exception
+inventory.isProductAvailable("bravia", _) >> { throw new RuntimeException("DB down") }
+
+// Dynamic response based on arguments
+service.calculateTax(_) >> { args -> args[0] * 0.1 }
+```
+
+**Compact stub initialization:**
+```groovy
+WarehouseInventory inventory = Stub(WarehouseInventory) {
+    isProductAvailable("bravia", 1) >> true
+    isProductAvailable("panasonic", 1) >> false
+    isEmpty() >> false
+}
+```
+
+### 10.6 Mock Hygiene
 
 - Keep mock count minimal (2-5 per test). 10+ mocks = production code design smell.
 - Inject via constructor, not field reflection.
@@ -719,9 +772,29 @@ Separate domain logic from infrastructure through ports and adapters:
 
 ---
 
-## 15. Parameterized Tests (Data-Driven)
+## 15. Spock Annotations and Extensions (Kapelonis)
 
-### 15.1 Spock — `where:` Block
+Spock provides built-in annotations for enterprise testing:
+
+| Annotation | Purpose | Example |
+|------------|---------|---------|
+| `@Timeout(5)` | Fail test if not completed within N seconds | Integration tests with external services |
+| `@Ignore("reason")` | Skip a test (always document why) | Temporarily disabled due to environment migration |
+| `@IgnoreIf({ os.windows })` | Conditionally skip based on runtime | OS-specific or JVM-version-specific tests |
+| `@Requires({ env.CI })` | Only run when condition is true | Tests that need CI environment |
+| `@Issue("JIRA-561")` | Link test to issue tracker | Regression tests for specific bugs |
+| `@AutoCleanup("shutdown")` | Auto-call cleanup method on field after test | External service connections, file handles |
+| `@Stepwise` | Run tests in declaration order, stop on first failure | Workflow/scenario tests (use sparingly) |
+
+**`@IgnoreIf` supports:** `jvm` (version), `os` (platform), `env` (environment variables), `sys` (system properties), or any custom closure.
+
+**`@Timeout` default unit:** seconds. Override with `@Timeout(value = 5000, unit = TimeUnit.MILLISECONDS)`.
+
+---
+
+## 16. Parameterized Tests (Data-Driven)
+
+### 16.1 Spock — `where:` Block
 
 ```groovy
 @Unroll
@@ -744,7 +817,25 @@ void 'converts #inputAmount #currency to smallest unit = #result'() {
 - Include distinguishing parameters in the test name using `#paramName`
 - Keep the table readable — if it has more than 5-6 columns, consider a helper method
 
-### 15.2 Kotlin — `@ParameterizedTest`
+**Data table rules (Kapelonis):**
+- Data tables must have at least 2 columns (use `_` as filler for single-column scenarios)
+- `where:` block MUST be the last block in the test (only `and:` can follow)
+- Each row spawns an independent test run — state resets between rows
+- Parameter types are inferred from values; declare explicitly in method signature if needed
+- Both input and output parameters can be used in mock verification counts: `shutDown * control.shutdownReactor()`
+
+**Data sources beyond tables:**
+- **Data pipes** (`<<`): dynamically feed values from any iterable
+- **Multi-assignment**: assign multiple variables from a single data source
+- **Custom iterators**: for complex data generation (least readable, use as last resort)
+
+```groovy
+// Data pipe example
+where:
+pictureFile << ["scenery.jpg", "house.jpeg", "car.png", "sky.tiff"]
+```
+
+### 16.2 Kotlin — `@ParameterizedTest`
 
 ```kotlin
 @ParameterizedTest
@@ -777,7 +868,7 @@ fun `resolves correct tax code`(percent: BigDecimal, applyGeneric: Boolean, expe
 
 ---
 
-## 16. When to Stop Testing
+## 17. When to Stop Testing
 
 Testing has diminishing returns. Use these heuristics (Aniche):
 
@@ -791,7 +882,7 @@ Testing has diminishing returns. Use these heuristics (Aniche):
 
 ---
 
-## 17. Checklist Before Submitting
+## 18. Checklist Before Submitting
 
 Before pushing tests in a PR, verify:
 
@@ -815,7 +906,7 @@ Before pushing tests in a PR, verify:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), and "Effective Software Testing: A Developer's Guide" (Maurício Aniche).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), and "Java Testing with Spock" (Konstantinos Kapelonis).*
 
 ---
 
@@ -827,3 +918,4 @@ Before pushing tests in a PR, verify:
 | 2026-03-10 | Alexey Sergeev | Added Kotlin/JUnit 5 coverage (MockK, Mockito, Testcontainers, @ParameterizedTest, @Nested). Added test data co-location principle. Covered all repo test stacks: Spock/Groovy + JUnit 5/Kotlin. Removed project-specific TestUtils references. Added integration test patterns (SpringBootTest, DbUnit, Testcontainers). |
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars of a Good Test (Khorikov). Added code complexity matrix for deciding what to test. Added Humble Object pattern. Added three testing styles (output-based, state-based, communication-based) with preference order. Added managed vs unmanaged dependencies. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge. Extended mocking guidelines with "never assert on stubs" rule. |
 | 2026-03-10 | Alexey Sergeev | Added systematic test case design: 7-step specification-based testing, equivalence partitioning, boundary value analysis (Aniche). Added SQL/database testing checklist. Added design for testability section (controllability/observability, hexagonal architecture, hard-to-test constructs). Added "when to stop testing" heuristics. Added test smells: sensitive assertions, over-general fixtures. |
+| 2026-03-10 | Alexey Sergeev | Added Spock-specific content (Kapelonis): lifecycle (setup/cleanup/setupSpec/cleanupSpec/@Shared), block frequency, advanced stubbing patterns (sequential responses >>>, wildcard matching, closure-based responses, compact initialization), Spock annotations (@Timeout, @Ignore, @IgnoreIf, @Requires, @Issue, @AutoCleanup, @Stepwise), advanced where: block (data pipes, multi-assignment, data table rules). |

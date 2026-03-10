@@ -182,14 +182,17 @@ These are deeper design issues in tests. Flag and explain:
 
 ### 4.5 Mock Usage Review
 
-**Spock:**
+**Spock (Kapelonis):**
 
 | Check | ✅ Good | ❌ Problem |
 |-------|--------|-----------|
 | Mock vs Stub choice | `Mock` for boundary interactions; `Stub` for data | `Mock` everywhere "just in case" |
 | Verification count | `1 * service.call(expectedArg)` with specific args | `_ * service.call(_)` with wildcards everywhere |
-| Spy usage | Rare, for partial mocking of the class under test | Spy as default choice |
+| Spy usage | Rare, last resort for legacy code | Spy as default choice (implies design problem) |
 | Stub assertions | Never verified | `1 * stub.getData()` — asserting on a stub |
+| Sequential stubs | `>>>` with list for ordered responses | Hard-coded when sequence would be clearer |
+| Argument matching | Specific args where possible, `_` only for irrelevant params | All `_` wildcards when args are known |
+| Compact init | `Stub(Service) { method() >> value }` for simple setups | 20 separate stub instruction lines |
 
 **Kotlin — Mockito:**
 
@@ -340,6 +343,8 @@ assertFailsWith<IllegalArgumentException>("userId must not be null") {
 | Edge cases in table? | Table includes boundary values, not just happy paths |
 | Table readability | Columns aligned, reasonable number (≤6 columns) |
 | Coverage | Does the table cover all branches the code has? |
+| Minimum 2 columns | Data tables need at least 2 columns (use `_` filler if single-column) |
+| Mock + where combo | Mock verification counts can use `where:` parameters (e.g., `alarm * control.activateAlarm()`) |
 
 ### 6.2 JUnit 5 — `@ParameterizedTest`
 
@@ -516,7 +521,7 @@ Copy this into your review workflow:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), and "Effective Software Testing: A Developer's Guide" (Maurício Aniche).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), and "Java Testing with Spock" (Konstantinos Kapelonis).*
 
 ---
 
@@ -528,3 +533,4 @@ Copy this into your review workflow:
 | 2026-03-10 | Alexey Sergeev | Added Kotlin/JUnit 5 review criteria (MockK, Mockito, @ParameterizedTest, @Nested, Testcontainers, SpringBootTest context slicing). Added test data co-location principle. Removed project-specific TestUtils references. Extended integration test review section with framework-specific checks. |
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars evaluation framework (Khorikov). Added false positives vs false negatives analysis. Added code type vs test type matrix. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge, mocking concrete classes. Added testing style assessment (output-based > state-based > communication-based). Added review comment templates for new patterns. Extended review checklist with Four Pillars section. |
 | 2026-03-10 | Alexey Sergeev | Added specification-based coverage review (equivalence partitions, boundary values). Added SQL/database testing review checklist (Aniche). Added test smells: sensitive assertions, over-general fixtures. Added review comment templates: missing boundary tests, testability concern. |
+| 2026-03-10 | Alexey Sergeev | Added Spock-specific review criteria (Kapelonis): advanced stubbing patterns (sequential >>>, argument matching, compact init), Spy as last resort, parameterized test data table rules (2-column min, mock+where combo). |
