@@ -85,7 +85,23 @@ For any method that handles collections or repeated operations:
 - [ ] One case tested? (single element)
 - [ ] Many case tested? (multiple elements, including edge counts)
 
-### 3.5 Missing Test Triggers
+### 3.5 Specification-Based Coverage (Aniche)
+
+For critical methods, verify that tests follow systematic test case design:
+
+- [ ] **Equivalence partitions identified?** — Inputs grouped by expected behavior type
+- [ ] **Boundary values tested?** — On-point and off-point for each boundary
+- [ ] **All partitions covered?** — At least one test per partition
+- [ ] **Combinations considered?** — When multiple inputs interact, key combinations are tested
+- [ ] **Parameterized tests used?** — When many inputs share the same test skeleton
+
+**Example review check:** If a method has a condition `if (amount >= 100)`, expect tests for:
+- Amount = 100 (on-point)
+- Amount = 99 (off-point)
+- Amount = 500 (clearly in range)
+- Amount = 0 (edge)
+
+### 3.6 Missing Test Triggers
 
 Request additional tests when you see:
 
@@ -149,6 +165,8 @@ Score each test for these smells. Any present = request changes:
 | **Unnecessary Code** | Commented-out tests, dead assertions, unused variables | Low — request cleanup |
 | **Ordering Dependency** | Tests that fail when run individually or in different order | Critical — must fix |
 | **Distant Test Helpers** | Test data builders/factories in a package far from the tests | Medium — should be co-located |
+| **Sensitive Assertions** | Assertions depend on fragile ordering, formatting, or timestamps | Medium — assert on stable properties |
+| **Over-General Fixtures** | Shared `@BeforeEach`/`setup()` sets up data only some tests use | Medium — localize setup per test |
 
 ### 4.4 Anti-Patterns (Khorikov)
 
@@ -351,6 +369,17 @@ When a PR includes integration tests:
 | Dependencies | Managed deps (DB, queue) use real instances; unmanaged deps (3rd-party) are mocked |
 | Multiple acts | Acceptable in integration tests for workflow sequences — don't flag this |
 
+**SQL/Database test checks (Aniche):**
+
+| Check | Requirement |
+|-------|-------------|
+| Result correctness | Tests verify actual query results, not just "no exception" |
+| Null handling | Tests include rows with NULL values in relevant columns |
+| Empty results | At least one test for "no rows match" scenario |
+| Joins | If query has joins, test with missing related data |
+| Boundaries | Date ranges, numeric limits, pagination edges tested |
+| Test data | Small, deterministic datasets co-located with tests |
+
 **Framework-specific checks:**
 
 | Framework | What to verify |
@@ -392,6 +421,12 @@ Use these patterns for consistent, actionable review comments:
 
 ### Design concern (too many mocks)
 > 🏗️ **Design concern.** This test requires 12 mocks to set up. This suggests the production class has too many responsibilities. Consider refactoring to separate domain logic from orchestration (Humble Object pattern).
+
+### Missing boundary tests
+> 📐 **Missing boundary tests.** The condition on line X (`amount >= 100`) has tests for values well above and below, but no test for the boundary itself (100) or the off-point (99).
+
+### Testability concern
+> 🔧 **Testability.** This method calls `LocalDate.now()` directly, making it hard to test date-dependent logic. Consider injecting a `Clock` to make the behavior controllable.
 
 ### Good test (positive feedback)
 > ✅ Good parameterized coverage — the `where:` table covers all the edge cases nicely.
@@ -481,7 +516,7 @@ Copy this into your review workflow:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr) and "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), and "Effective Software Testing: A Developer's Guide" (Maurício Aniche).*
 
 ---
 
@@ -492,3 +527,4 @@ Copy this into your review workflow:
 | 2026-03-10 | Alexey Sergeev | Initial draft: 3-pass review structure (completeness, quality, correctness), test smell checklist with severities, mock usage review criteria, ZOM/Right-BICEP coverage checks, decision framework, review comment templates, copy-paste review checklist. Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed). |
 | 2026-03-10 | Alexey Sergeev | Added Kotlin/JUnit 5 review criteria (MockK, Mockito, @ParameterizedTest, @Nested, Testcontainers, SpringBootTest context slicing). Added test data co-location principle. Removed project-specific TestUtils references. Extended integration test review section with framework-specific checks. |
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars evaluation framework (Khorikov). Added false positives vs false negatives analysis. Added code type vs test type matrix. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge, mocking concrete classes. Added testing style assessment (output-based > state-based > communication-based). Added review comment templates for new patterns. Extended review checklist with Four Pillars section. |
+| 2026-03-10 | Alexey Sergeev | Added specification-based coverage review (equivalence partitions, boundary values). Added SQL/database testing review checklist (Aniche). Added test smells: sensitive assertions, over-general fixtures. Added review comment templates: missing boundary tests, testability concern. |

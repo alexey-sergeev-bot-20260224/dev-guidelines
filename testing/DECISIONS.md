@@ -52,14 +52,15 @@
 
 ### 3. Source Material
 
-**Decision:** Guides are based on two books:
+**Decision:** Guides are based on three books:
 1. "Pragmatic Unit Testing in Java with JUnit" (3rd edition, Jeff Langr, 2024) — practical patterns, mnemonics, test smells.
 2. "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov, Manning, 2020) — four pillars, testing styles, anti-patterns, mocking philosophy.
+3. "Effective Software Testing: A Developer's Guide" (Maurício Aniche, Manning, 2022) — systematic test case design, specification-based testing, SQL testing, design for testability, when to stop testing.
 
 **What was considered but not used (yet):**
 - "Extreme Programming Explained" (Kent Beck) — Alexey has this in PDF. Good for philosophy but too high-level for practical test instructions. May be used later for TDD workflow guidance.
 - "Java Testing with Spock" (Kapelonis) / "Spock: Up and Running" (Fletcher) — Spock-specific deep dives. Not yet incorporated.
-- "Effective Software Testing" (Aniche, 2022) — modern Java testing. Not yet incorporated.
+
 - "Growing Object-Oriented Software, Guided by Tests" (Freeman & Pryce) — integration testing focus. Not yet incorporated.
 
 **Full top-10 book list evaluated (2026-03-10):**
@@ -115,7 +116,23 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 
 ---
 
-### 7. No Coverage Targets
+### 7. Systematic Test Case Design Included
+
+**Decision:** Include the 7-step specification-based testing workflow, equivalence partitioning, and boundary value analysis from Aniche.
+
+**Why:** Right-BICEP and CORRECT (from Langr) tell you *what aspects* to test. Aniche's specification-based approach tells you *how to systematically derive test cases* — it's a method, not just a checklist. Particularly valuable for:
+- AI agents that need a repeatable algorithm for generating test cases
+- Junior developers who don't have the experience to intuit which cases matter
+- Complex business logic where ad-hoc testing misses edge cases
+
+**What was considered but excluded (for now):**
+- **MC/DC (Modified Condition/Decision Coverage)** — too specialized for most backend code. May be added if safety-critical logic is introduced.
+- **Property-based testing** — powerful technique but not currently used in any repo. May be added when adopted.
+- **Mutation testing** — valuable for measuring test quality but not currently integrated into CI. Documented in decisions as a future consideration.
+
+---
+
+### 8. No Coverage Targets
 
 **Decision:** No mandatory code coverage percentage in the guides.
 
@@ -129,7 +146,7 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 
 ---
 
-### 8. No TDD Mandate
+### 9. No TDD Mandate
 
 **Decision:** Guides don't mandate TDD (test-first) workflow.
 
@@ -150,9 +167,12 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 | Contract testing (Pact) | Not currently used in any repo | When microservice API contracts become a concern |
 | Performance/load testing | Different discipline, different tools | When performance testing guidelines are needed |
 | UI/frontend testing | Guides are backend-only | If frontend testing guidelines are requested |
-| Mutation testing (PIT) | Not currently used | When test effectiveness measurement is desired |
+| Mutation testing (PIT) | Concept documented in decisions; not integrated into CI | When test effectiveness measurement is desired |
+| Property-based testing | Concept understood (Aniche); not currently used in any repo | When a repo adopts jqwik or similar PBT framework |
+| MC/DC coverage | Too specialized for most backend code | When safety-critical or complex boolean logic is introduced |
 | Test containers best practices | Briefly covered; could expand | When more repos adopt Testcontainers |
 | Flaky test management | Briefly mentioned as anti-pattern | When flaky tests become a systemic problem |
+| Design-by-contract tooling | Concept covered; no tooling adopted | When pre/post-condition libraries are introduced |
 
 ---
 
@@ -162,3 +182,4 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 |------|---------|---------|
 | 2026-03-10 | Alexey Sergeev | Initial decisions log: test data co-location rationale, multi-language coverage decision, source material evaluated, mnemonics selection, no coverage targets, no TDD mandate, excluded topics. |
 | 2026-03-10 | Alexey Sergeev | Added Khorikov book as second source. Recorded new concepts incorporated: Four Pillars, testing styles preference order, anti-patterns (asserting on stubs, leaking domain knowledge, testing private methods), managed vs unmanaged dependencies, code complexity matrix. |
+| 2026-03-10 | Alexey Sergeev | Added Aniche book as third source. Recorded: 7-step specification-based testing, equivalence partitioning, boundary value analysis, SQL testing checklist, design for testability, "when to stop testing" heuristics. Excluded for now: MC/DC, property-based testing, mutation testing, design-by-contract tooling. |

@@ -292,9 +292,63 @@ fun testProcess() { ... }
 
 ---
 
-## 7. What to Test: Checklists
+## 7. Systematic Test Case Design
 
-### 7.1 Right-BICEP (What to Test)
+### 7.1 The 7-Step Process (Aniche)
+
+Use this systematic workflow when designing tests for any method/feature:
+
+1. **Understand** — Map inputs, outputs, pre-conditions, and post-conditions
+2. **Explore** — Manually run through the behavior with sample inputs
+3. **Partition** — Identify equivalence partitions (groups of inputs that should produce the same type of result)
+4. **Analyze boundaries** — Find on-point (boundary itself) and off-point (just past boundary) values
+5. **Devise test cases** — Create one test per partition + boundary combination
+6. **Automate** — Use parameterized tests where many inputs share the same test skeleton
+7. **Augment** — Add creative edge cases, unusual combinations, experience-based tests
+
+**Example:** Method `calculateDiscount(amount, customerType)`:
+- Partitions: amount (zero, small, large, negative), customerType (REGULAR, PREMIUM, null)
+- Boundaries: discount threshold (e.g., amount = 100 is on-point, 99 and 101 are off-points)
+- Creative: currency rounding, max BigDecimal value, concurrent calls
+
+### 7.2 Equivalence Partitioning
+
+Group inputs into classes where the system should behave the same way. Test at least one value from each partition.
+
+```
+Input: age (integer)
+Partitions:
+  - Invalid: negative values, null
+  - Child: 0-17
+  - Adult: 18-64
+  - Senior: 65+
+  - Boundary: MAX_INT, 0
+
+→ Minimum test cases: one from each partition + boundary values
+```
+
+### 7.3 Boundary Value Analysis
+
+Bugs cluster at boundaries. For every boundary, test:
+- **On-point** — the boundary value itself
+- **Off-point** — the value just past the boundary
+- **In-point** — a value clearly inside the partition
+- **Out-point** — a value clearly outside the partition
+
+```
+Rule: discount applies when amount >= 100
+
+On-point:  100 (boundary — gets discount)
+Off-point:  99 (just below — no discount)
+In-point:  500 (clearly in discount range)
+Out-point:  10 (clearly outside)
+```
+
+---
+
+## 8. What to Test: Checklists
+
+### 8.1 Right-BICEP (What to Test)
 
 | Letter | Meaning | Ask yourself |
 |--------|---------|--------------|
@@ -305,7 +359,7 @@ fun testProcess() { ... }
 | **E** | Error conditions | What should happen when things go wrong? |
 | **P** | Performance characteristics | Does it complete within acceptable time? (rare in unit tests) |
 
-### 7.2 CORRECT Boundary Conditions
+### 8.2 CORRECT Boundary Conditions
 
 | Letter | Boundary | Example |
 |--------|----------|---------|
@@ -317,14 +371,14 @@ fun testProcess() { ... }
 | **C** | Cardinality | Zero, one, many — does each case work? |
 | **T** | Time | Timing issues? (timeouts, ordering of events, time zones) |
 
-### 7.3 ZOM — Zero, One, Many
+### 8.3 ZOM — Zero, One, Many
 
 For any collection or repeatable behavior:
 1. **Zero** — empty collection, no items, null
 2. **One** — single element (simplest case)
 3. **Many** — multiple elements (general case + edge cases)
 
-### 7.4 What NOT to Test
+### 8.4 What NOT to Test
 
 - Trivial getters/setters with no logic (trivial code quadrant)
 - Framework behavior (don't test that Spring DI works)
@@ -334,9 +388,9 @@ For any collection or repeatable behavior:
 
 ---
 
-## 8. Test Data
+## 9. Test Data
 
-### 8.1 Co-Location Principle
+### 9.1 Co-Location Principle
 
 Test resources, helpers, builders, and factories **must be located in the same package (or sub-packages) as the tests that use them**.
 
@@ -362,7 +416,7 @@ src/test/
 - If a helper is genuinely cross-cutting (used by multiple unrelated domains) → place it in a shared `testfixtures` source set or a `testutils` sub-package of the closest common ancestor
 - Never create a single grab-bag utility class for all test data across the entire project
 
-### 8.2 Builder/Factory Pattern
+### 9.2 Builder/Factory Pattern
 
 Create test data factories with sensible defaults and overridable parameters:
 
@@ -401,7 +455,7 @@ object InvoiceTestData {
 }
 ```
 
-### 8.3 Minimize Test Data
+### 9.3 Minimize Test Data
 
 Only set fields relevant to the test. Use defaults for everything else.
 
@@ -419,9 +473,9 @@ val receipt = SalesReceipt(
 
 ---
 
-## 9. Test Doubles (Mocking)
+## 10. Test Doubles (Mocking)
 
-### 9.1 Types of Test Doubles
+### 10.1 Types of Test Doubles
 
 | Type | Purpose | Verify interactions? |
 |------|---------|---------------------|
@@ -432,7 +486,7 @@ val receipt = SalesReceipt(
 
 **Key rule (Khorikov):** Never assert on stubs. If you verify that a stub was called, you're testing implementation details.
 
-### 9.2 When to Mock vs When Not To
+### 10.2 When to Mock vs When Not To
 
 **Mock (communication-based testing) when:**
 - Verifying interactions at **system boundaries** (message bus, external API, email sender)
@@ -444,14 +498,14 @@ val receipt = SalesReceipt(
 - You're mocking to avoid wiring a small, deterministic collaborator — this adds fragility
 - The mock replaces domain logic that should be tested as combined behavior
 
-### 9.3 Managed vs Unmanaged Dependencies
+### 10.3 Managed vs Unmanaged Dependencies
 
 | Type | Examples | In tests |
 |------|----------|----------|
 | **Managed** (you control) | Your database, your message queue | Use real instances in integration tests |
 | **Unmanaged** (external) | 3rd-party APIs, payment gateways | Mock/stub in all tests |
 
-### 9.4 Framework-Specific Syntax
+### 10.4 Framework-Specific Syntax
 
 **Spock:**
 ```groovy
@@ -487,7 +541,7 @@ every { searchService.find(any()) } returns listOf(TaxCode("1"))
 verify(exactly = 1) { eventPublisher.publish(match { it is OrderPlaced }) }
 ```
 
-### 9.5 Mock Hygiene
+### 10.5 Mock Hygiene
 
 - Keep mock count minimal (2-5 per test). 10+ mocks = production code design smell.
 - Inject via constructor, not field reflection.
@@ -496,7 +550,7 @@ verify(exactly = 1) { eventPublisher.publish(match { it is OrderPlaced }) }
 
 ---
 
-## 10. Unit Tests vs Integration Tests
+## 11. Unit Tests vs Integration Tests
 
 | Aspect | Unit Test | Integration Test |
 |--------|-----------|-----------------|
@@ -508,13 +562,13 @@ verify(exactly = 1) { eventPublisher.publish(match { it is OrderPlaced }) }
 | **File naming** | `*Spec.groovy` / `*Test.kt` | `*IntegrationTest.groovy` / `*IntegrationTest.kt` |
 | **Multiple acts** | No — one act per test | Acceptable for workflow sequences |
 
-### 10.1 Unit Test Rules
+### 11.1 Unit Test Rules
 - Mock all external dependencies
 - No network, no filesystem, no real database
 - For Spock/GORM: use `DataTest` trait + `mockDomains()` for domain classes
 - Should run in milliseconds
 
-### 10.2 Integration Test Rules
+### 11.2 Integration Test Rules
 
 **Spring Boot (Kotlin/Groovy):**
 ```kotlin
@@ -570,9 +624,28 @@ class InvoicePaymentIntegrationTest {
 - Use real managed dependencies (DB, queues) where feasible; mock only unmanaged (3rd-party) dependencies
 - Don't test logging content (except structured log fields when part of the contract)
 
+### 11.3 SQL / Database Testing Checklist (Aniche)
+
+When testing SQL queries or repository methods, verify:
+
+- [ ] **Correctness** — query returns the right results for known test data
+- [ ] **Null handling** — behavior when columns contain NULL values
+- [ ] **Empty results** — what happens when no rows match
+- [ ] **Ordering** — if ORDER BY is expected, verify sort order
+- [ ] **Grouping/aggregation** — GROUP BY, COUNT, SUM return correct values
+- [ ] **Joins** — left/inner/outer join produces correct result when related data is missing
+- [ ] **Boundary values** — date ranges, numeric limits, string length limits
+- [ ] **Pagination** — LIMIT/OFFSET work correctly at edges (first page, last page, beyond last)
+- [ ] **Concurrent modifications** — if relevant, test optimistic locking / race conditions
+
+**Infrastructure patterns:**
+- Use small, deterministic datasets (not production dumps)
+- Prefer `@Transactional` rollback or Testcontainers for isolation
+- Co-locate test data files (SQL scripts, DbUnit XML) with the test class
+
 ---
 
-## 11. Test Quality: FIRST Principles
+## 12. Test Quality: FIRST Principles
 
 | Letter | Principle | Meaning |
 |--------|-----------|---------|
@@ -584,7 +657,7 @@ class InvoicePaymentIntegrationTest {
 
 ---
 
-## 12. Test Smells and Anti-Patterns
+## 13. Test Smells and Anti-Patterns
 
 | Smell | Description | Fix |
 |-------|-------------|-----|
@@ -603,12 +676,52 @@ class InvoicePaymentIntegrationTest {
 | **Asserting on Stubs** | Verifying that a stub was called | Stubs provide data; only mocks verify interactions |
 | **Exposing State for Testing** | Adding getters/methods to production code solely for tests | Redesign to assert via observable behavior |
 | **Leaking Domain Knowledge** | Test duplicates production algorithm to compute expected value | Use hardcoded expected values |
+| **Sensitive Assertions** | Assertions depend on fragile ordering, formatting, or non-deterministic values | Assert on stable, meaningful properties; ignore irrelevant ordering |
+| **Over-General Fixtures** | Shared `@BeforeEach` sets up data used by only some tests | Localize setup; each test creates only what it needs |
 
 ---
 
-## 13. Parameterized Tests (Data-Driven)
+## 14. Design for Testability
 
-### 13.1 Spock — `where:` Block
+### 14.1 Controllability and Observability
+
+Good test design requires two properties in production code:
+
+- **Controllability** — ability to set the system into a desired state for testing (via constructor injection, method parameters, configuration)
+- **Observability** — ability to verify the outcome (via return values, state queries, emitted events)
+
+If code is hard to test, it's usually because one of these is missing. Fix the design, don't work around it.
+
+### 14.2 Hexagonal Architecture as Testability Pattern
+
+Separate domain logic from infrastructure through ports and adapters:
+
+```
+[Domain Logic]  ←→  [Port (interface)]  ←→  [Adapter (infrastructure)]
+     ↑                                              ↑
+  Unit test                                    Integration test
+  (easy, fast)                                 (real DB, real API)
+```
+
+- Domain logic: pure business rules, no framework dependencies → easy to unit test
+- Ports: interfaces defining what domain needs → stub/mock in unit tests
+- Adapters: implementations (DB, HTTP, messaging) → test with integration tests
+
+### 14.3 Handling Hard-to-Test Constructs
+
+| Problem | Solution |
+|---------|----------|
+| Static methods | Wrap in an injectable service |
+| Singletons | Refactor to injected dependency |
+| `new Date()` / `LocalDate.now()` | Inject a `Clock` or time provider |
+| Complex conditional logic | Extract into a domain method; test separately |
+| Void methods with side effects | Use spies or verify observable state changes |
+
+---
+
+## 15. Parameterized Tests (Data-Driven)
+
+### 15.1 Spock — `where:` Block
 
 ```groovy
 @Unroll
@@ -631,7 +744,7 @@ void 'converts #inputAmount #currency to smallest unit = #result'() {
 - Include distinguishing parameters in the test name using `#paramName`
 - Keep the table readable — if it has more than 5-6 columns, consider a helper method
 
-### 13.2 Kotlin — `@ParameterizedTest`
+### 15.2 Kotlin — `@ParameterizedTest`
 
 ```kotlin
 @ParameterizedTest
@@ -664,7 +777,21 @@ fun `resolves correct tax code`(percent: BigDecimal, applyGeneric: Boolean, expe
 
 ---
 
-## 14. Checklist Before Submitting
+## 16. When to Stop Testing
+
+Testing has diminishing returns. Use these heuristics (Aniche):
+
+- **Specification coverage** — all equivalence partitions and boundaries from the spec are covered
+- **Structural coverage** — branch coverage is satisfactory (not 100% necessarily — see Decisions)
+- **Mutation score** — if used, most non-equivalent mutants are killed
+- **Diminishing returns** — new tests keep finding the same types of issues (saturation)
+- **Risk assessment** — critical business logic has more tests; low-risk utility code has fewer
+
+**Practical rule:** When you've covered all partitions, boundaries, error paths, and the code complexity matrix says this code type is tested appropriately — stop.
+
+---
+
+## 17. Checklist Before Submitting
 
 Before pushing tests in a PR, verify:
 
@@ -688,7 +815,7 @@ Before pushing tests in a PR, verify:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr) and "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), and "Effective Software Testing: A Developer's Guide" (Maurício Aniche).*
 
 ---
 
@@ -699,3 +826,4 @@ Before pushing tests in a PR, verify:
 | 2026-03-10 | Alexey Sergeev | Initial draft: test structure, naming, what to test (Right-BICEP, CORRECT, ZOM), mocking guidelines, parameterized tests, test data, unit vs integration boundaries, FIRST principles, test smells, pre-submit checklist. Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed). |
 | 2026-03-10 | Alexey Sergeev | Added Kotlin/JUnit 5 coverage (MockK, Mockito, Testcontainers, @ParameterizedTest, @Nested). Added test data co-location principle. Covered all repo test stacks: Spock/Groovy + JUnit 5/Kotlin. Removed project-specific TestUtils references. Added integration test patterns (SpringBootTest, DbUnit, Testcontainers). |
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars of a Good Test (Khorikov). Added code complexity matrix for deciding what to test. Added Humble Object pattern. Added three testing styles (output-based, state-based, communication-based) with preference order. Added managed vs unmanaged dependencies. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge. Extended mocking guidelines with "never assert on stubs" rule. |
+| 2026-03-10 | Alexey Sergeev | Added systematic test case design: 7-step specification-based testing, equivalence partitioning, boundary value analysis (Aniche). Added SQL/database testing checklist. Added design for testability section (controllability/observability, hexagonal architecture, hard-to-test constructs). Added "when to stop testing" heuristics. Added test smells: sensitive assertions, over-general fixtures. |
