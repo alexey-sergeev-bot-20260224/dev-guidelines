@@ -52,15 +52,16 @@
 
 ### 3. Source Material
 
-**Decision:** Guides are based on four books:
+**Decision:** Guides are based on five books:
 1. "Pragmatic Unit Testing in Java with JUnit" (3rd edition, Jeff Langr, 2024) — practical patterns, mnemonics, test smells.
 2. "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov, Manning, 2020) — four pillars, testing styles, anti-patterns, mocking philosophy.
 3. "Effective Software Testing: A Developer's Guide" (Maurício Aniche, Manning, 2022) — systematic test case design, specification-based testing, SQL testing, design for testability, when to stop testing.
 4. "Java Testing with Spock" (Konstantinos Kapelonis, Manning, 2016) — Spock framework deep dive: lifecycle, advanced stubbing/mocking, annotations, data-driven testing, Spring integration.
+5. "Spock: Up and Running" (Rob Fletcher, O'Reilly, 2017) — advanced Spock: interaction ordering, strict mocking, power assertions, verifyAll, Groovy traits for reuse, metadata annotations, spec organization.
 
 **What was considered but not used (yet):**
 - "Extreme Programming Explained" (Kent Beck) — Alexey has this in PDF. Good for philosophy but too high-level for practical test instructions. May be used later for TDD workflow guidance.
-- "Spock: Up and Running" (Fletcher) — Spock deep dive. Not yet incorporated.
+
 
 - "Growing Object-Oriented Software, Guided by Tests" (Freeman & Pryce) — integration testing focus. Not yet incorporated.
 
@@ -185,3 +186,4 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 | 2026-03-10 | Alexey Sergeev | Added Khorikov book as second source. Recorded new concepts incorporated: Four Pillars, testing styles preference order, anti-patterns (asserting on stubs, leaking domain knowledge, testing private methods), managed vs unmanaged dependencies, code complexity matrix. |
 | 2026-03-10 | Alexey Sergeev | Added Aniche book as third source. Recorded: 7-step specification-based testing, equivalence partitioning, boundary value analysis, SQL testing checklist, design for testability, "when to stop testing" heuristics. Excluded for now: MC/DC, property-based testing, mutation testing, design-by-contract tooling. |
 | 2026-03-10 | Alexey Sergeev | Added Kapelonis book as fourth source. Spock-specific: lifecycle details, advanced stubbing (>>>, closures, compact init), annotation reference (@Timeout, @Ignore, @IgnoreIf, @Requires, @Issue, @AutoCleanup, @Stepwise), data table rules, Spy as last resort. |
+| 2026-03-10 | Alexey Sergeev | Added Fletcher book as fifth source. Unique: interaction ordering via multiple then blocks, strict mocking (0 * _), power assertions/verifyAll, Groovy traits for spec composition, metadata annotations (@Title, @Narrative, @Subject, @See). |

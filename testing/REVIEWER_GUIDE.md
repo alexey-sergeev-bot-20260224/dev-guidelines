@@ -193,6 +193,10 @@ These are deeper design issues in tests. Flag and explain:
 | Sequential stubs | `>>>` with list for ordered responses | Hard-coded when sequence would be clearer |
 | Argument matching | Specific args where possible, `_` only for irrelevant params | All `_` wildcards when args are known |
 | Compact init | `Stub(Service) { method() >> value }` for simple setups | 20 separate stub instruction lines |
+| Interaction ordering | Multiple `then` blocks for temporal ordering | Order-dependent checks in single `then` block |
+| Strict mocking | `0 * _` at end of `then` to catch unexpected calls | Implicit assumption no extra calls happen |
+| Assertions | `verifyAll()` to check all properties at once | Many separate `then` assertions that stop at first failure |
+| Spec reuse | Groovy traits for shared helpers | Deep inheritance hierarchies between spec classes |
 
 **Kotlin — Mockito:**
 
@@ -521,7 +525,7 @@ Copy this into your review workflow:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), and "Java Testing with Spock" (Konstantinos Kapelonis).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), and "Spock: Up and Running" (Rob Fletcher).*
 
 ---
 
@@ -534,3 +538,4 @@ Copy this into your review workflow:
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars evaluation framework (Khorikov). Added false positives vs false negatives analysis. Added code type vs test type matrix. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge, mocking concrete classes. Added testing style assessment (output-based > state-based > communication-based). Added review comment templates for new patterns. Extended review checklist with Four Pillars section. |
 | 2026-03-10 | Alexey Sergeev | Added specification-based coverage review (equivalence partitions, boundary values). Added SQL/database testing review checklist (Aniche). Added test smells: sensitive assertions, over-general fixtures. Added review comment templates: missing boundary tests, testability concern. |
 | 2026-03-10 | Alexey Sergeev | Added Spock-specific review criteria (Kapelonis): advanced stubbing patterns (sequential >>>, argument matching, compact init), Spy as last resort, parameterized test data table rules (2-column min, mock+where combo). |
+| 2026-03-10 | Alexey Sergeev | Added Fletcher review criteria: interaction ordering (multiple then blocks), strict mocking (0 * _), verifyAll for grouped assertions, Groovy traits over inheritance for spec reuse. |

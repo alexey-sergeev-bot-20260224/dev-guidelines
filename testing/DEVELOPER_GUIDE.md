@@ -594,7 +594,63 @@ WarehouseInventory inventory = Stub(WarehouseInventory) {
 }
 ```
 
-### 10.6 Mock Hygiene
+### 10.6 Interaction Ordering and Strict Mocking (Fletcher)
+
+**Multiple `then` blocks enforce ordering:**
+```groovy
+when:
+service.processOrder(order)
+
+then: 'payment is charged first'
+1 * paymentService.charge(order.total)
+
+then: 'notification is sent after payment'
+1 * notificationService.sendConfirmation(order.id)
+```
+Interactions within the **same** `then` block are unordered. Interactions in **later** `then` blocks must happen after earlier ones. Use this to verify temporal ordering.
+
+**Strict mocking with `0 * _`:**
+```groovy
+then: 'only expected interactions happen'
+1 * emailService.send(userId, _)
+0 * _   // no other interactions on any mock
+```
+End a `then` block with `0 * _` to assert there were no unexpected calls on any mock. Use sparingly — it's powerful but brittle.
+
+### 10.7 Assertions: Power Assert, `with()`, and `verifyAll()` (Fletcher)
+
+**Power assertions:** Spock rewrites boolean expressions in `then`/`expect` blocks to show sub-expression values on failure. Favor single expressive boolean expressions over multiple separate assertions — Spock gives richer failure output.
+
+**`with()` — group assertions on one object:**
+```groovy
+then:
+with(result) {
+    status == 'PROCESSED'
+    amount == 100.0
+    currency == 'USD'
+}
+```
+
+**`verifyAll()` — assert all conditions even if one fails:**
+```groovy
+then:
+verifyAll(result) {
+    status == 'PROCESSED'
+    amount == 100.0
+    currency == 'USD'
+}
+```
+`verifyAll` reports ALL failures, not just the first. Use it when multiple properties should be checked together.
+
+**Tip:** Break complex conditions into named intermediate variables for readable failure messages:
+```groovy
+then:
+def firstItem = result.items[0]
+firstItem.name == 'bravia'
+firstItem.price == 1200
+```
+
+### 10.8 Mock Hygiene
 
 - Keep mock count minimal (2-5 per test). 10+ mocks = production code design smell.
 - Inject via constructor, not field reflection.
@@ -772,7 +828,62 @@ Separate domain logic from infrastructure through ports and adapters:
 
 ---
 
-## 15. Spock Annotations and Extensions (Kapelonis)
+## 15. Spec Reuse and Organization (Fletcher)
+
+### Groovy Traits for Shared Test Logic
+
+Prefer Groovy traits over inheritance for sharing test utilities across specs:
+
+```groovy
+trait InvoiceTestSupport {
+    Invoice buildInvoice(Map overrides = [:]) {
+        def defaults = [amount: BigDecimal.TEN, currency: 'USD', status: 'PENDING']
+        new Invoice(defaults + overrides)
+    }
+}
+
+class InvoiceServiceSpec extends Specification implements InvoiceTestSupport {
+    void 'processes valid invoice'() {
+        given:
+        def invoice = buildInvoice(amount: 500.0)
+        // ...
+    }
+}
+```
+
+**Rules:**
+- Traits are composable — a spec can implement multiple traits
+- Keep traits in the same package as the specs that use them
+- Use traits for factory methods, DSL helpers, and shared mock setup
+- Abstract base specs: only for immutable, well-documented common lifecycle (e.g., Spring context setup)
+- Prefer composition over inheritance — supply helpers via `@Shared` fields or traits, not deep class hierarchies
+
+### Metadata Annotations
+
+Use Spock metadata annotations for living documentation:
+
+```groovy
+@Title('Invoice Processing Service')
+@Narrative('Handles creation, validation, and settlement of invoices')
+@Subject(InvoiceService)
+class InvoiceServiceSpec extends Specification {
+
+    @See('https://jira.example.com/browse/PROJ-123')
+    void 'rejects invoices with negative amount'() { ... }
+}
+```
+
+| Annotation | Purpose |
+|------------|---------|
+| `@Title` | Human-readable spec title for reports |
+| `@Narrative` | Multi-line description of what the spec covers |
+| `@Subject` | Tag the primary class under test |
+| `@See` | Cross-reference to docs, issue tracker |
+| `@Issue` | Link to specific bug/feature ticket |
+
+---
+
+## 16. Spock Annotations and Extensions (Kapelonis)
 
 Spock provides built-in annotations for enterprise testing:
 
@@ -792,9 +903,9 @@ Spock provides built-in annotations for enterprise testing:
 
 ---
 
-## 16. Parameterized Tests (Data-Driven)
+## 17. Parameterized Tests (Data-Driven)
 
-### 16.1 Spock — `where:` Block
+### 17.1 Spock — `where:` Block
 
 ```groovy
 @Unroll
@@ -835,7 +946,7 @@ where:
 pictureFile << ["scenery.jpg", "house.jpeg", "car.png", "sky.tiff"]
 ```
 
-### 16.2 Kotlin — `@ParameterizedTest`
+### 17.2 Kotlin — `@ParameterizedTest`
 
 ```kotlin
 @ParameterizedTest
@@ -868,7 +979,7 @@ fun `resolves correct tax code`(percent: BigDecimal, applyGeneric: Boolean, expe
 
 ---
 
-## 17. When to Stop Testing
+## 18. When to Stop Testing
 
 Testing has diminishing returns. Use these heuristics (Aniche):
 
@@ -882,7 +993,7 @@ Testing has diminishing returns. Use these heuristics (Aniche):
 
 ---
 
-## 18. Checklist Before Submitting
+## 19. Checklist Before Submitting
 
 Before pushing tests in a PR, verify:
 
@@ -906,7 +1017,7 @@ Before pushing tests in a PR, verify:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), and "Java Testing with Spock" (Konstantinos Kapelonis).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), and "Spock: Up and Running" (Rob Fletcher).*
 
 ---
 
@@ -919,3 +1030,4 @@ Before pushing tests in a PR, verify:
 | 2026-03-10 | Alexey Sergeev | Added Four Pillars of a Good Test (Khorikov). Added code complexity matrix for deciding what to test. Added Humble Object pattern. Added three testing styles (output-based, state-based, communication-based) with preference order. Added managed vs unmanaged dependencies. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge. Extended mocking guidelines with "never assert on stubs" rule. |
 | 2026-03-10 | Alexey Sergeev | Added systematic test case design: 7-step specification-based testing, equivalence partitioning, boundary value analysis (Aniche). Added SQL/database testing checklist. Added design for testability section (controllability/observability, hexagonal architecture, hard-to-test constructs). Added "when to stop testing" heuristics. Added test smells: sensitive assertions, over-general fixtures. |
 | 2026-03-10 | Alexey Sergeev | Added Spock-specific content (Kapelonis): lifecycle (setup/cleanup/setupSpec/cleanupSpec/@Shared), block frequency, advanced stubbing patterns (sequential responses >>>, wildcard matching, closure-based responses, compact initialization), Spock annotations (@Timeout, @Ignore, @IgnoreIf, @Requires, @Issue, @AutoCleanup, @Stepwise), advanced where: block (data pipes, multi-assignment, data table rules). |
+| 2026-03-10 | Alexey Sergeev | Added Fletcher content: interaction ordering via multiple then blocks, strict mocking (0 * _), power assertions and verifyAll/with patterns, Groovy traits for spec reuse (composition over inheritance), metadata annotations (@Title, @Narrative, @Subject, @See), exception + interaction combination patterns. |
