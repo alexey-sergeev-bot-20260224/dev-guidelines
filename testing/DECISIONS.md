@@ -52,11 +52,12 @@
 
 ### 3. Source Material
 
-**Decision:** Guides are based on "Pragmatic Unit Testing in Java with JUnit" (3rd edition, Jeff Langr, 2024) adapted for our stack.
+**Decision:** Guides are based on two books:
+1. "Pragmatic Unit Testing in Java with JUnit" (3rd edition, Jeff Langr, 2024) — practical patterns, mnemonics, test smells.
+2. "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov, Manning, 2020) — four pillars, testing styles, anti-patterns, mocking philosophy.
 
 **What was considered but not used (yet):**
 - "Extreme Programming Explained" (Kent Beck) — Alexey has this in PDF. Good for philosophy but too high-level for practical test instructions. May be used later for TDD workflow guidance.
-- "Unit Testing Principles, Practices, and Patterns" (Khorikov) — #1 recommended book for reviewer criteria. Not yet incorporated. Would strengthen the reviewer guide significantly.
 - "Java Testing with Spock" (Kapelonis) / "Spock: Up and Running" (Fletcher) — Spock-specific deep dives. Not yet incorporated.
 - "Effective Software Testing" (Aniche, 2022) — modern Java testing. Not yet incorporated.
 - "Growing Object-Oriented Software, Guided by Tests" (Freeman & Pryce) — integration testing focus. Not yet incorporated.
@@ -75,7 +76,32 @@
 
 ---
 
-### 4. Mnemonics Included
+### 4. Testing Style Preference Order
+
+**Decision:** Output-based > State-based > Communication-based testing, when you have a choice.
+
+**Why:**
+- Output-based tests (assert return values) have the highest resistance to refactoring — they don't couple to internals at all.
+- State-based tests (assert state after action) are slightly more coupled but still good.
+- Communication-based tests (mock verification) are the most fragile — they lock the interaction pattern and break on harmless refactors.
+
+**When communication-based is correct:** System boundaries (message bus, external API, email sender) where the interaction IS the observable behavior.
+
+**What this means for reviews:** If a reviewer sees mock verification for domain logic that could be tested via return values, they should suggest switching to output-based style.
+
+---
+
+### 5. "Never Assert on Stubs" Rule
+
+**Decision:** Stubs provide data. Mocks verify interactions. Never verify that a stub was called.
+
+**Why (Khorikov):** If you stub `searchService.find() >> results` and then also verify `1 * searchService.find()`, you're testing your own test setup, not production behavior. This creates false confidence and brittle tests.
+
+**Practical impact:** In Spock, if you use `Stub()`, never put it in a `then:` block verification. If you need to verify the call, use `Mock()` instead — but only if the call is part of the observable contract.
+
+---
+
+### 6. Mnemonics Included
 
 **Decision:** Include Right-BICEP, CORRECT, ZOM, and FIRST from the book.
 
@@ -89,7 +115,7 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 
 ---
 
-### 5. No Coverage Targets
+### 7. No Coverage Targets
 
 **Decision:** No mandatory code coverage percentage in the guides.
 
@@ -103,7 +129,7 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 
 ---
 
-### 6. No TDD Mandate
+### 8. No TDD Mandate
 
 **Decision:** Guides don't mandate TDD (test-first) workflow.
 
@@ -135,3 +161,4 @@ These are compact, memorable, and work for both humans and AI agents as checklis
 | Date | Authors | Changes |
 |------|---------|---------|
 | 2026-03-10 | Alexey Sergeev | Initial decisions log: test data co-location rationale, multi-language coverage decision, source material evaluated, mnemonics selection, no coverage targets, no TDD mandate, excluded topics. |
+| 2026-03-10 | Alexey Sergeev | Added Khorikov book as second source. Recorded new concepts incorporated: Four Pillars, testing styles preference order, anti-patterns (asserting on stubs, leaking domain knowledge, testing private methods), managed vs unmanaged dependencies, code complexity matrix. |

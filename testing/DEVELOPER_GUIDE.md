@@ -17,7 +17,32 @@ Tests are an investment. Write tests that provide ongoing value, not tests that 
 
 ---
 
-## 2. Test Stack
+## 2. The Four Pillars of a Good Test
+
+Every test should be evaluated against these four pillars (Khorikov):
+
+| Pillar | Question to ask |
+|--------|----------------|
+| **Protection against regressions** | Will this test fail if I introduce a real bug? |
+| **Resistance to refactoring** | Will this test survive internal changes that don't alter behavior? |
+| **Fast feedback** | Does this test run fast enough to be used in the dev loop? |
+| **Maintainability** | Is this test easy to read, change, and keep up to date? |
+
+These pillars conflict — an end-to-end test maximizes regression protection but sacrifices speed. Use them as a decision framework: pick the testing style that best fits the behavior you're protecting.
+
+### Resistance to Refactoring (Key Concept)
+
+The most commonly violated pillar. A test resists refactoring when it continues to pass after internal code changes that preserve external behavior.
+
+**How to achieve it:**
+- Assert **externally observable outcomes** (return values, persisted state, emitted events) — not internal call sequences
+- Avoid verifying internal method names, call order, or collaborator counts that aren't part of the contract
+- Prefer black-box testing: rely on API and observable effects
+- If a purely internal refactor would break your test, the test is too tightly coupled to implementation
+
+---
+
+## 3. Test Stack
 
 The backend services use two test ecosystems depending on the language:
 
@@ -47,13 +72,97 @@ The backend services use two test ecosystems depending on the language:
 
 - Test file location: same package as the class under test, under `src/test/`
 - One test class per production class (with possible sub-classes via `@Nested` or inner classes)
-- Test resources, helpers, and factories live **in the same package or sub-packages** as the tests that use them (see [Section 7: Test Data](#7-test-data))
+- Test resources, helpers, and factories live **in the same package or sub-packages** as the tests that use them (see [Section 8: Test Data](#8-test-data))
 
 ---
 
-## 3. Test Structure
+## 4. What to Test: The Code Complexity Matrix
 
-### 3.1 Spock (Groovy): Given-When-Then
+Not all code deserves the same testing effort. Use this matrix (Khorikov) to decide:
+
+```
+                    Few collaborators          Many collaborators
+                ┌─────────────────────────┬─────────────────────────┐
+  High          │  DOMAIN MODEL /         │  OVERCOMPLICATED CODE   │
+  complexity    │  ALGORITHMS             │                         │
+  / business    │                         │  → Refactor first,      │
+  significance  │  → Unit test heavily    │    then test             │
+                │    (highest value)      │                         │
+                ├─────────────────────────┼─────────────────────────┤
+  Low           │  TRIVIAL CODE           │  CONTROLLERS /          │
+  complexity    │                         │  ORCHESTRATORS          │
+                │  → Don't test           │                         │
+                │    (getters, setters)   │  → Integration test     │
+                │                         │    (few, focused)       │
+                └─────────────────────────┴─────────────────────────┘
+```
+
+**In practice:**
+- **Domain model & algorithms** — high complexity, few collaborators → unit test heavily (output-based or state-based). This is where most of your tests should live.
+- **Controllers / orchestrators** — low complexity, many collaborators → fewer tests, use integration tests that exercise orchestration with real (in-process) collaborators.
+- **Trivial code** — don't test simple getters/setters/delegation with no logic.
+- **Overcomplicated code** — too complex AND too many dependencies → refactor to separate domain logic from coordination before testing.
+
+### The Humble Object Pattern
+
+When code is hard to test because it mixes business logic with infrastructure concerns (UI, DB, messaging), extract the logic into a testable "domain" object and leave the infrastructure part as a thin "humble" wrapper:
+
+```
+Before:  [Controller with complex business logic + DB calls]  ← hard to test
+
+After:   [Controller (humble)]  →  [Domain Service (complex logic)]  ← easy to unit test
+              ↓
+         [Repository (infrastructure)]  ← integration test
+```
+
+---
+
+## 5. Three Styles of Testing
+
+| Style | What you verify | Best for | Resistance to refactoring |
+|-------|----------------|----------|--------------------------|
+| **Output-based** | Return value of a function | Pure functions, calculations, mappers | Highest — no coupling to internals |
+| **State-based** | State of the system after an operation | Domain entities, stateful services | High — if asserting observable state |
+| **Communication-based** | Interactions with collaborators (mocks) | System boundaries, external integrations | Lowest — easily couples to implementation |
+
+**Prefer output-based > state-based > communication-based** when you have a choice.
+
+**Output-based (best):**
+```groovy
+void 'calculates tax for US customer'() {
+    expect:
+    taxCalculator.calculate(amount: 100.0, country: 'US') == 7.50
+}
+```
+
+**State-based (good):**
+```groovy
+void 'adds item to cart'() {
+    when:
+    cart.addItem(new Item(price: 10.0))
+
+    then:
+    cart.items.size() == 1
+    cart.items[0].price == 10.0
+}
+```
+
+**Communication-based (use only when necessary):**
+```groovy
+void 'sends notification when order placed'() {
+    when:
+    orderService.placeOrder(order)
+
+    then:
+    1 * notificationService.send(order.customerId, _)  // only if this IS the contract
+}
+```
+
+---
+
+## 6. Test Structure
+
+### 6.1 Spock (Groovy): Given-When-Then
 
 Every Spock test should use labeled blocks to clearly separate phases:
 
@@ -89,7 +198,7 @@ cleanup:                   Teardown — release resources
 and:                       Continue any block for readability
 ```
 
-### 3.2 JUnit 5 (Kotlin): Arrange-Act-Assert
+### 6.2 JUnit 5 (Kotlin): Arrange-Act-Assert
 
 Use clear separation with comments or blank lines:
 
@@ -124,7 +233,7 @@ inner class CalculateTotal {
 }
 ```
 
-### 3.3 One Behavior Per Test
+### 6.3 One Behavior Per Test
 
 Each test method should verify **one specific behavior**. If you need to assert two different outcomes of two different actions, write two tests.
 
@@ -135,9 +244,9 @@ void 'process transaction'() {
     service.processTransaction(txn)
 
     then:
-    1 * repository.save(_)         // testing save
-    1 * notificationService.notify(_)  // AND notification
-    txn.status == 'PROCESSED'          // AND status change
+    1 * repository.save(_)
+    1 * notificationService.notify(_)
+    txn.status == 'PROCESSED'
 }
 ```
 
@@ -148,7 +257,9 @@ void 'sends notification when transaction processed'() { ... }
 void 'marks transaction as processed'() { ... }
 ```
 
-### 3.4 Test Naming
+**Exception:** Integration tests may have multiple act-assert phases when testing a workflow sequence (e.g., create → process → verify result). This is acceptable because integration tests often need to exercise multi-step flows.
+
+### 6.4 Test Naming
 
 Use descriptive, readable names that describe behavior.
 
@@ -181,9 +292,9 @@ fun testProcess() { ... }
 
 ---
 
-## 4. What to Test
+## 7. What to Test: Checklists
 
-### 4.1 Right-BICEP (What to Test)
+### 7.1 Right-BICEP (What to Test)
 
 | Letter | Meaning | Ask yourself |
 |--------|---------|--------------|
@@ -194,7 +305,7 @@ fun testProcess() { ... }
 | **E** | Error conditions | What should happen when things go wrong? |
 | **P** | Performance characteristics | Does it complete within acceptable time? (rare in unit tests) |
 
-### 4.2 CORRECT Boundary Conditions
+### 7.2 CORRECT Boundary Conditions
 
 | Letter | Boundary | Example |
 |--------|----------|---------|
@@ -206,16 +317,16 @@ fun testProcess() { ... }
 | **C** | Cardinality | Zero, one, many — does each case work? |
 | **T** | Time | Timing issues? (timeouts, ordering of events, time zones) |
 
-### 4.3 ZOM — Zero, One, Many
+### 7.3 ZOM — Zero, One, Many
 
 For any collection or repeatable behavior:
 1. **Zero** — empty collection, no items, null
 2. **One** — single element (simplest case)
 3. **Many** — multiple elements (general case + edge cases)
 
-### 4.4 What NOT to Test
+### 7.4 What NOT to Test
 
-- Trivial getters/setters with no logic
+- Trivial getters/setters with no logic (trivial code quadrant)
 - Framework behavior (don't test that Spring DI works)
 - Third-party library internals
 - Private methods directly — test them through public behavior
@@ -223,152 +334,9 @@ For any collection or repeatable behavior:
 
 ---
 
-## 5. Test Doubles (Mocking)
+## 8. Test Data
 
-### 5.1 Choosing the Right Double
-
-**Spock:**
-
-| Type | When to use | Syntax |
-|------|-------------|--------|
-| **Stub** | Replace behavior, return canned values | `Stub(ServiceClass)` or `>>` operator |
-| **Mock** | Verify interactions (method was called) | `Mock(ServiceClass)` + `then:` verification |
-| **Spy** | Partial mock — real object with some overrides | `Spy(ServiceClass)` |
-
-**Kotlin — Mockito:**
-
-| Type | When to use | Syntax |
-|------|-------------|--------|
-| **Stub** | Return canned values | `mock<Service>()` + `` `when`(mock.method()).thenReturn(value) `` |
-| **Mock** | Verify interactions | `mock<Service>()` + `verify(mock).method()` |
-| **Argument capture** | Inspect call arguments | `argumentCaptor<Type>()` + `verify(mock).method(captor.capture())` |
-
-**Kotlin — MockK:**
-
-| Type | When to use | Syntax |
-|------|-------------|--------|
-| **Stub** | Return canned values | `mockk<Service>()` + `every { mock.method() } returns value` |
-| **Mock** | Verify interactions | `verify { mock.method() }` |
-| **Relaxed mock** | Auto-return defaults | `mockk<Service>(relaxed = true)` |
-
-### 5.2 Prefer Stubs Over Mocks
-
-Use stubs when you only need to provide data. Use mocks only when **verifying an interaction is part of the behavior** you're testing.
-
-**Spock:**
-```groovy
-// Stub — just providing data
-def searchService = Stub(SearchService) {
-    find(_) >> [new TaxCode(id: '1')]
-}
-
-// Mock — we NEED to verify this was called
-def notificationService = Mock(NotificationService)
-// ...
-then:
-1 * notificationService.sendAlert(userId, _)
-```
-
-**Kotlin (Mockito):**
-```kotlin
-// Stub
-val searchService = mock<SearchService>()
-`when`(searchService.find(any())).thenReturn(listOf(TaxCode("1")))
-
-// Verify
-verify(notificationService).sendAlert(eq(userId), any())
-```
-
-### 5.3 Keep Mock Setup Minimal
-
-If you need 20+ lines of mock setup, that's a design smell — the class under test likely has too many dependencies.
-
-### 5.4 Inject via Constructor
-
-Prefer constructor injection for the class under test, passing mocks directly:
-
-**Spock:**
-```groovy
-void setup() {
-    repository = Mock(OrderRepository)
-    notifier = Mock(NotificationService)
-    service = new OrderService(repository, notifier)
-}
-```
-
-**Kotlin:**
-```kotlin
-@BeforeEach
-fun setup() {
-    repository = mock<OrderRepository>()
-    notifier = mock<NotificationService>()
-    service = OrderService(repository, notifier)
-}
-```
-
----
-
-## 6. Parameterized Tests (Data-Driven)
-
-### 6.1 Spock — `where:` Block
-
-```groovy
-@Unroll
-void 'converts #inputAmount #currency to smallest unit = #result'() {
-    expect:
-    SmallestUnitCurrencyConvertor.convertToSmallestUnit(inputAmount, currency) == result
-
-    where:
-    inputAmount    | currency || result
-    null           | null     || null
-    BigDecimal.TEN | null     || 10L
-    BigDecimal.TEN | "JPY"   || 10L
-    BigDecimal.TEN | "USD"   || 1000L
-}
-```
-
-**Rules:**
-- Use `||` to visually separate inputs from expected output
-- Always add `@Unroll` so each case appears as a separate test in reports
-- Include distinguishing parameters in the test name using `#paramName`
-- Keep the table readable — if it has more than 5-6 columns, consider a helper method
-
-### 6.2 Kotlin — `@ParameterizedTest`
-
-```kotlin
-@ParameterizedTest
-@CsvSource(
-    "10.0, USD, 1000",
-    "10.0, JPY, 10",
-    "10.0, '', 10"
-)
-fun `converts amount to smallest currency unit`(amount: BigDecimal, currency: String, expected: Long) {
-    assertEquals(expected, convertToSmallestUnit(amount, currency))
-}
-```
-
-For complex test data, use `@MethodSource`:
-
-```kotlin
-companion object {
-    @JvmStatic
-    fun taxCases() = listOf(
-        Arguments.of(BigDecimal("15.0"), false, createTaxPseudoTaxCode()),
-        Arguments.of(BigDecimal.ZERO, true, createTaxPseudoTaxCode()),
-        Arguments.of(BigDecimal.ZERO, false, createNonPseudoTaxCode())
-    )
-}
-
-@ParameterizedTest
-@MethodSource("taxCases")
-fun `resolves correct tax code`(percent: BigDecimal, applyGeneric: Boolean, expected: TaxCode) { ... }
-```
-
----
-
-## 7. Test Data
-
-### 7.1 Co-Location Principle
+### 8.1 Co-Location Principle
 
 Test resources, helpers, builders, and factories **must be located in the same package (or sub-packages) as the tests that use them**.
 
@@ -394,7 +362,7 @@ src/test/
 - If a helper is genuinely cross-cutting (used by multiple unrelated domains) → place it in a shared `testfixtures` source set or a `testutils` sub-package of the closest common ancestor
 - Never create a single grab-bag utility class for all test data across the entire project
 
-### 7.2 Builder/Factory Pattern
+### 8.2 Builder/Factory Pattern
 
 Create test data factories with sensible defaults and overridable parameters:
 
@@ -433,7 +401,7 @@ object InvoiceTestData {
 }
 ```
 
-### 7.3 Minimize Test Data
+### 8.3 Minimize Test Data
 
 Only set fields relevant to the test. Use defaults for everything else.
 
@@ -451,7 +419,84 @@ val receipt = SalesReceipt(
 
 ---
 
-## 8. Unit Tests vs Integration Tests
+## 9. Test Doubles (Mocking)
+
+### 9.1 Types of Test Doubles
+
+| Type | Purpose | Verify interactions? |
+|------|---------|---------------------|
+| **Stub** | Provides canned data to the test | No — never assert on stub calls |
+| **Mock** | Verifies that interactions happened | Yes — assert calls, args, counts |
+| **Spy** | Wraps real object, records interactions | Yes — partial verification |
+| **Fake** | Lightweight real implementation (in-memory DB) | No — behaves like production |
+
+**Key rule (Khorikov):** Never assert on stubs. If you verify that a stub was called, you're testing implementation details.
+
+### 9.2 When to Mock vs When Not To
+
+**Mock (communication-based testing) when:**
+- Verifying interactions at **system boundaries** (message bus, external API, email sender)
+- The interaction is part of the **observable contract** — callers expect this side effect
+- The dependency is **out-of-process** and non-deterministic
+
+**Don't mock when:**
+- The dependency is an **in-process collaborator** whose real behavior is easy to use
+- You're mocking to avoid wiring a small, deterministic collaborator — this adds fragility
+- The mock replaces domain logic that should be tested as combined behavior
+
+### 9.3 Managed vs Unmanaged Dependencies
+
+| Type | Examples | In tests |
+|------|----------|----------|
+| **Managed** (you control) | Your database, your message queue | Use real instances in integration tests |
+| **Unmanaged** (external) | 3rd-party APIs, payment gateways | Mock/stub in all tests |
+
+### 9.4 Framework-Specific Syntax
+
+**Spock:**
+```groovy
+// Stub — providing data
+def searchService = Stub(SearchService) {
+    find(_) >> [new TaxCode(id: '1')]
+}
+
+// Mock — verifying interaction at system boundary
+def eventPublisher = Mock(DomainEventPublisher)
+// ...
+then:
+1 * eventPublisher.publish({ it instanceof OrderPlaced })
+```
+
+**Kotlin (Mockito):**
+```kotlin
+// Stub
+val searchService = mock<SearchService>()
+`when`(searchService.find(any())).thenReturn(listOf(TaxCode("1")))
+
+// Verify boundary interaction
+verify(eventPublisher).publish(argThat { it is OrderPlaced })
+```
+
+**Kotlin (MockK):**
+```kotlin
+// Stub
+val searchService = mockk<SearchService>()
+every { searchService.find(any()) } returns listOf(TaxCode("1"))
+
+// Verify
+verify(exactly = 1) { eventPublisher.publish(match { it is OrderPlaced }) }
+```
+
+### 9.5 Mock Hygiene
+
+- Keep mock count minimal (2-5 per test). 10+ mocks = production code design smell.
+- Inject via constructor, not field reflection.
+- Only mock **direct** dependencies of the class under test.
+- Prefer stubs over mocks. Prefer output-based assertions over interaction assertions.
+
+---
+
+## 10. Unit Tests vs Integration Tests
 
 | Aspect | Unit Test | Integration Test |
 |--------|-----------|-----------------|
@@ -459,16 +504,17 @@ val receipt = SalesReceipt(
 | **Dependencies** | All mocked/stubbed | Some or all real |
 | **Database** | GORM `DataTest` (in-memory) or no DB | Real DB, embedded DB, or Testcontainers |
 | **Speed** | Milliseconds | Seconds |
-| **When to use** | Business logic, calculations, mappings | DB queries, API integrations, multi-service flows |
+| **When to use** | Domain model, algorithms, calculations | DB queries, API integrations, multi-service flows |
 | **File naming** | `*Spec.groovy` / `*Test.kt` | `*IntegrationTest.groovy` / `*IntegrationTest.kt` |
+| **Multiple acts** | No — one act per test | Acceptable for workflow sequences |
 
-### 8.1 Unit Test Rules
+### 10.1 Unit Test Rules
 - Mock all external dependencies
 - No network, no filesystem, no real database
 - For Spock/GORM: use `DataTest` trait + `mockDomains()` for domain classes
 - Should run in milliseconds
 
-### 8.2 Integration Test Rules
+### 10.2 Integration Test Rules
 
 **Spring Boot (Kotlin/Groovy):**
 ```kotlin
@@ -497,8 +543,6 @@ class ReconciliationIntegrationTest {
         @Container
         val postgres = PostgreSQLContainer("postgres:15")
     }
-
-    // ...
 }
 ```
 
@@ -523,11 +567,12 @@ class InvoicePaymentIntegrationTest {
 - Tag/name integration tests distinctly (`*IntegrationTest`) for CI separation
 - Clean up test data in `@AfterEach` / `cleanup()` / use `@Transactional` rollback
 - No flaky timing, no race conditions, no port conflicts
-- Keep integration tests focused — don't re-test business logic already covered by unit tests
+- Use real managed dependencies (DB, queues) where feasible; mock only unmanaged (3rd-party) dependencies
+- Don't test logging content (except structured log fields when part of the contract)
 
 ---
 
-## 9. Test Quality: FIRST Principles
+## 11. Test Quality: FIRST Principles
 
 | Letter | Principle | Meaning |
 |--------|-----------|---------|
@@ -539,25 +584,87 @@ class InvoicePaymentIntegrationTest {
 
 ---
 
-## 10. Test Smells to Avoid
+## 12. Test Smells and Anti-Patterns
 
 | Smell | Description | Fix |
 |-------|-------------|-----|
 | **Bloated Construction** | 20+ lines of setup before the actual test | Extract to test helper/builder in the same package |
-| **Multiple Assertions** | Testing multiple behaviors in one test | Split into focused tests |
+| **Multiple Assertions** | Testing multiple unrelated behaviors in one test | Split into focused tests |
 | **Irrelevant Details** | Test sets up data that doesn't affect the outcome | Remove noise, keep only relevant fields |
 | **Misleading Organization** | Test name says one thing, body tests another | Rename or restructure |
 | **Implicit Meaning** | Magic numbers, unclear variable names | Use descriptive names and constants |
 | **Unnecessary Test Code** | Dead code, commented-out assertions | Remove it |
-| **Missing Abstractions** | Complex inline setup that repeats across tests | Extract builder/factory in the same package |
+| **Missing Abstractions** | Complex inline setup repeated across tests | Extract builder/factory in the same package |
 | **Generalized Assertions** | `assert result != null` instead of checking actual value | Assert specific expected values |
 | **Brittle Tests** | Break when implementation changes but behavior doesn't | Test behavior, not implementation |
 | **Slow Tests** | Unnecessary I/O, sleeps, or heavy setup | Mock external deps, use in-memory alternatives |
-| **Distant Test Helpers** | Test data factories in a package far from the tests | Move helpers to the same package as the tests |
+| **Distant Test Helpers** | Test data factories in a package far from the tests | Move helpers to the same package |
+| **Testing Private Methods** | Direct access to private methods via reflection | Test through public API instead |
+| **Asserting on Stubs** | Verifying that a stub was called | Stubs provide data; only mocks verify interactions |
+| **Exposing State for Testing** | Adding getters/methods to production code solely for tests | Redesign to assert via observable behavior |
+| **Leaking Domain Knowledge** | Test duplicates production algorithm to compute expected value | Use hardcoded expected values |
 
 ---
 
-## 11. Checklist Before Submitting
+## 13. Parameterized Tests (Data-Driven)
+
+### 13.1 Spock — `where:` Block
+
+```groovy
+@Unroll
+void 'converts #inputAmount #currency to smallest unit = #result'() {
+    expect:
+    SmallestUnitCurrencyConvertor.convertToSmallestUnit(inputAmount, currency) == result
+
+    where:
+    inputAmount    | currency || result
+    null           | null     || null
+    BigDecimal.TEN | null     || 10L
+    BigDecimal.TEN | "JPY"   || 10L
+    BigDecimal.TEN | "USD"   || 1000L
+}
+```
+
+**Rules:**
+- Use `||` to visually separate inputs from expected output
+- Always add `@Unroll` so each case appears as a separate test in reports
+- Include distinguishing parameters in the test name using `#paramName`
+- Keep the table readable — if it has more than 5-6 columns, consider a helper method
+
+### 13.2 Kotlin — `@ParameterizedTest`
+
+```kotlin
+@ParameterizedTest
+@CsvSource(
+    "10.0, USD, 1000",
+    "10.0, JPY, 10",
+    "10.0, '', 10"
+)
+fun `converts amount to smallest currency unit`(amount: BigDecimal, currency: String, expected: Long) {
+    assertEquals(expected, convertToSmallestUnit(amount, currency))
+}
+```
+
+For complex test data, use `@MethodSource`:
+
+```kotlin
+companion object {
+    @JvmStatic
+    fun taxCases() = listOf(
+        Arguments.of(BigDecimal("15.0"), false, createTaxPseudoTaxCode()),
+        Arguments.of(BigDecimal.ZERO, true, createTaxPseudoTaxCode()),
+        Arguments.of(BigDecimal.ZERO, false, createNonPseudoTaxCode())
+    )
+}
+
+@ParameterizedTest
+@MethodSource("taxCases")
+fun `resolves correct tax code`(percent: BigDecimal, applyGeneric: Boolean, expected: TaxCode) { ... }
+```
+
+---
+
+## 14. Checklist Before Submitting
 
 Before pushing tests in a PR, verify:
 
@@ -565,7 +672,10 @@ Before pushing tests in a PR, verify:
 - [ ] Tests have descriptive names that explain the behavior
 - [ ] Tests use proper structure (`given/when/then` for Spock, `Arrange/Act/Assert` for JUnit)
 - [ ] Each test verifies one behavior
+- [ ] Assertions target externally observable outcomes (not implementation details)
+- [ ] Testing style matches the code type (output-based for domain logic, integration for controllers)
 - [ ] Mock setup is minimal — only what's needed for the test
+- [ ] Mocks are used only for system boundaries; stubs are never asserted on
 - [ ] Test data helpers are co-located with tests (same package or sub-packages)
 - [ ] Parameterized tests use `@Unroll` (Spock) or `@ParameterizedTest` (JUnit) with descriptive names
 - [ ] No hard-coded sleeps or timing dependencies
@@ -578,7 +688,7 @@ Before pushing tests in a PR, verify:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr) and "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov).*
 
 ---
 
@@ -588,3 +698,4 @@ Before pushing tests in a PR, verify:
 |------|---------|---------|
 | 2026-03-10 | Alexey Sergeev | Initial draft: test structure, naming, what to test (Right-BICEP, CORRECT, ZOM), mocking guidelines, parameterized tests, test data, unit vs integration boundaries, FIRST principles, test smells, pre-submit checklist. Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed). |
 | 2026-03-10 | Alexey Sergeev | Added Kotlin/JUnit 5 coverage (MockK, Mockito, Testcontainers, @ParameterizedTest, @Nested). Added test data co-location principle. Covered all repo test stacks: Spock/Groovy + JUnit 5/Kotlin. Removed project-specific TestUtils references. Added integration test patterns (SpringBootTest, DbUnit, Testcontainers). |
+| 2026-03-10 | Alexey Sergeev | Added Four Pillars of a Good Test (Khorikov). Added code complexity matrix for deciding what to test. Added Humble Object pattern. Added three testing styles (output-based, state-based, communication-based) with preference order. Added managed vs unmanaged dependencies. Added anti-patterns: testing private methods, asserting on stubs, exposing state for testing, leaking domain knowledge. Extended mocking guidelines with "never assert on stubs" rule. |
