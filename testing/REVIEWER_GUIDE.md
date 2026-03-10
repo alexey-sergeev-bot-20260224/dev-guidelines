@@ -291,3 +291,11 @@ Copy this into your review workflow:
 ---
 
 *Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr) adapted for Synder's Spock/Groovy stack.*
+
+---
+
+## Revision History
+
+| Date | Authors | Changes |
+|------|---------|---------|
+| 2026-03-10 | Alexey Sergeev | Initial draft: 3-pass review structure (completeness, quality, correctness), test smell checklist with severities, mock usage review criteria, ZOM/Right-BICEP coverage checks, decision framework, review comment templates, copy-paste review checklist. Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed), adapted for Synder's Spock/Groovy stack. |

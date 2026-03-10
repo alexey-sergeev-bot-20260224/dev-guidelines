@@ -352,3 +352,11 @@ and:     Continue any block for readability
 ---
 
 *Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr) adapted for Synder's Spock/Groovy stack.*
+
+---
+
+## Revision History
+
+| Date | Authors | Changes |
+|------|---------|---------|
+| 2026-03-10 | Alexey Sergeev | Initial draft: test structure, naming, what to test (Right-BICEP, CORRECT, ZOM), mocking guidelines, parameterized tests, test data, unit vs integration boundaries, FIRST principles, test smells, pre-submit checklist. Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed), adapted for Synder's Spock/Groovy stack. |
