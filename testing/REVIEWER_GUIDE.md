@@ -437,6 +437,12 @@ Use these patterns for consistent, actionable review comments:
 ### Testability concern
 > 🔧 **Testability.** This method calls `LocalDate.now()` directly, making it hard to test date-dependent logic. Consider injecting a `Clock` to make the behavior controllable.
 
+### Law of Demeter violation
+> 🔗 **Law of Demeter.** This method receives a `Context` object but only uses `context.getSettings().getTaxRate()`. Pass the `TaxRate` directly to reduce coupling and simplify test setup.
+
+### Conditional complexity
+> 🔀 **Conditional complexity.** This long `switch`/`if-else` chain has 8 branches, each needing separate tests. Consider refactoring to polymorphism — separate handler classes per type, each independently testable.
+
 ### Good test (positive feedback)
 > ✅ Good parameterized coverage — the `where:` table covers all the edge cases nicely.
 
@@ -525,7 +531,7 @@ Copy this into your review workflow:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), and "Spock: Up and Running" (Rob Fletcher).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), "Spock: Up and Running" (Rob Fletcher), and "JUnit in Action" (3rd ed, Cătălin Tudose).*
 
 ---
 
@@ -539,3 +545,4 @@ Copy this into your review workflow:
 | 2026-03-10 | Alexey Sergeev | Added specification-based coverage review (equivalence partitions, boundary values). Added SQL/database testing review checklist (Aniche). Added test smells: sensitive assertions, over-general fixtures. Added review comment templates: missing boundary tests, testability concern. |
 | 2026-03-10 | Alexey Sergeev | Added Spock-specific review criteria (Kapelonis): advanced stubbing patterns (sequential >>>, argument matching, compact init), Spy as last resort, parameterized test data table rules (2-column min, mock+where combo). |
 | 2026-03-10 | Alexey Sergeev | Added Fletcher review criteria: interaction ordering (multiple then blocks), strict mocking (0 * _), verifyAll for grouped assertions, Groovy traits over inheritance for spec reuse. |
+| 2026-03-10 | Alexey Sergeev | Added Tudose review criteria: review comment templates for Law of Demeter violations and conditional complexity. Complements design-for-testability checks. |

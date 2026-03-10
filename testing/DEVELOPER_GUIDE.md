@@ -242,6 +242,53 @@ inner class CalculateTotal {
 }
 ```
 
+### JUnit 5 Assertion Patterns (Tudose)
+
+**`assertAll` — grouped assertions (like Spock's `verifyAll`):**
+```kotlin
+@Test
+fun `processes order correctly`() {
+    val result = service.processOrder(order)
+
+    assertAll(
+        { assertEquals("PROCESSED", result.status) },
+        { assertEquals(100.0, result.amount) },
+        { assertEquals("USD", result.currency) }
+    )
+}
+```
+`assertAll` reports ALL failures, not just the first — same concept as Spock's `verifyAll`.
+
+**`assertTimeout` — performance constraints:**
+```kotlin
+@Test
+fun `processes within acceptable time`() {
+    assertTimeout(Duration.ofMillis(500)) {
+        service.processHeavyOperation()
+    }
+}
+// assertTimeoutPreemptively — aborts execution when time expires
+```
+
+**Assumptions — conditional test execution:**
+```kotlin
+@Test
+fun `runs only in CI environment`() {
+    assumeTrue(System.getenv("CI") != null)
+    // test body — skipped (not failed) if assumption is false
+}
+```
+Use `assumeTrue`/`assumingThat` when a test only makes sense under specific conditions (environment, OS, Java version). Skipped tests show as "aborted" in reports, not "failed".
+
+**`@RepeatedTest` — verify stability:**
+```kotlin
+@RepeatedTest(5)
+fun `calculation is deterministic`() {
+    assertEquals(expected, calculator.compute(input))
+}
+```
+Use when you need to verify that results are stable across multiple runs (randomized algorithms, concurrency, environment-dependent behavior).
+
 ### 6.3 One Behavior Per Test
 
 Each test method should verify **one specific behavior**. If you need to assert two different outcomes of two different actions, write two tests.
@@ -825,6 +872,24 @@ Separate domain logic from infrastructure through ports and adapters:
 | `new Date()` / `LocalDate.now()` | Inject a `Clock` or time provider |
 | Complex conditional logic | Extract into a domain method; test separately |
 | Void methods with side effects | Use spies or verify observable state changes |
+| Final/sealed classes | Mock the interface, not the concrete class |
+| Long conditional chains | Replace with polymorphism (see below) |
+
+### 14.4 Design Principles for Testability (Tudose)
+
+**Public APIs are contracts** — never change the signature of a public method without updating all tests. Tests are first-class clients of your API.
+
+**Reduce dependencies** — separate object creation (factories) from business logic. Pass dependencies via constructor, don't create them internally.
+
+**Simple constructors** — constructors should only populate instance variables. Moving initialization logic to separate methods makes objects easier to set up in tests.
+
+**Law of Demeter** — ask only for objects your class directly needs. Don't pass a `Context` object and call `context.getDriver()` — pass the `Driver` directly. This reduces the mock setup surface.
+
+**Avoid hidden global state** — injecting dependencies (IoC) makes the code testable and explicit. Hidden globals create test order dependencies and make failures mysterious.
+
+**Favor polymorphism over conditionals** — long `switch`/`if-else` chains are hard to test. Each branch is a separate behavior that should be a separate class, tested independently.
+
+**Favor composition over inheritance** — composition is more flexible at runtime and easier to test. Objects composed of injected collaborators can be tested with mocks/stubs; deep inheritance hierarchies cannot.
 
 ---
 
@@ -1017,7 +1082,7 @@ Before pushing tests in a PR, verify:
 
 ---
 
-*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), and "Spock: Up and Running" (Rob Fletcher).*
+*Based on "Pragmatic Unit Testing in Java with JUnit" (3rd ed, Jeff Langr), "Unit Testing: Principles, Practices, and Patterns" (Vladimir Khorikov), "Effective Software Testing: A Developer's Guide" (Maurício Aniche), "Java Testing with Spock" (Konstantinos Kapelonis), "Spock: Up and Running" (Rob Fletcher), and "JUnit in Action" (3rd ed, Cătălin Tudose).*
 
 ---
 
@@ -1031,3 +1096,4 @@ Before pushing tests in a PR, verify:
 | 2026-03-10 | Alexey Sergeev | Added systematic test case design: 7-step specification-based testing, equivalence partitioning, boundary value analysis (Aniche). Added SQL/database testing checklist. Added design for testability section (controllability/observability, hexagonal architecture, hard-to-test constructs). Added "when to stop testing" heuristics. Added test smells: sensitive assertions, over-general fixtures. |
 | 2026-03-10 | Alexey Sergeev | Added Spock-specific content (Kapelonis): lifecycle (setup/cleanup/setupSpec/cleanupSpec/@Shared), block frequency, advanced stubbing patterns (sequential responses >>>, wildcard matching, closure-based responses, compact initialization), Spock annotations (@Timeout, @Ignore, @IgnoreIf, @Requires, @Issue, @AutoCleanup, @Stepwise), advanced where: block (data pipes, multi-assignment, data table rules). |
 | 2026-03-10 | Alexey Sergeev | Added Fletcher content: interaction ordering via multiple then blocks, strict mocking (0 * _), power assertions and verifyAll/with patterns, Groovy traits for spec reuse (composition over inheritance), metadata annotations (@Title, @Narrative, @Subject, @See), exception + interaction combination patterns. |
+| 2026-03-10 | Alexey Sergeev | Added Tudose content: JUnit 5 assertAll (grouped assertions), assertTimeout/assertTimeoutPreemptively, assumptions (assumeTrue/assumingThat), @RepeatedTest, expanded design-for-testability principles (Law of Demeter, IoC, polymorphism over conditionals, composition over inheritance, simple constructors, no hidden global state). |
