@@ -61,4 +61,4 @@ This document covers JVM-based applications and services written in Java, Groovy
 | 2026-03-03 | Alexey Sergeev | Added Other Suffixes sub-section to Naming Conventions. |
 | 2026-03-03 | Alexey Sergeev | Added Tests and Other Suffixes sub-sections to Naming Conventions. |
 | 2026-03-13 | Alexey Sergeev | Added decomposition notice. Replaced Tests sub-section with links to dedicated testing guides (Developer Guide, Reviewer Guide). |
-| 2026-03-13 | Bob (AI agent) | Replaced Domain Model, Application Logic, Naming Conventions, Code Reuse and Abstraction, and What NOT to Do sections with links to architecture guides (DEVELOPER_GUIDE.md, REVIEWER_GUIDE.md). DEV_RULES.md is now an index document. |
+| 2026-03-13 | Alexey Sergeev | Replaced Domain Model, Application Logic, Naming Conventions, Code Reuse and Abstraction, and What NOT to Do sections with links to architecture guides (DEVELOPER_GUIDE.md, REVIEWER_GUIDE.md). DEV_RULES.md is now an index document. |

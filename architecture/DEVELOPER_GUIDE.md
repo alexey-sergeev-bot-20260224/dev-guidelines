@@ -647,4 +647,4 @@ Before submitting code in a PR, verify:
 
 | Date | Authors | Changes |
 |------|---------|---------|
-| 2026-03-12 | Bob (AI agent) | Initial draft: domain-first organization, public API vs implementation, dependency direction, naming conventions, code reuse and abstraction, Grails anti-pattern, module design decisions, migration patterns, application layer, service ecosystem overview, pre-submit checklist. Based on DEV_RULES.md and codebase analysis of all SynderAccounting repositories. |
+| 2026-03-12 | Alexey Sergeev | Initial draft: domain-first organization, public API vs implementation, dependency direction, naming conventions, code reuse and abstraction, Grails anti-pattern, module design decisions, migration patterns, application layer, service ecosystem overview, pre-submit checklist. Based on DEV_RULES.md and codebase analysis of all SynderAccounting repositories. |
