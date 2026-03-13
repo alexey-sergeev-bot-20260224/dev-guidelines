@@ -1,5 +1,10 @@
 # Synder Backend Development Guidelines
 
+> **Note:** This document is being gradually decomposed into focused, topic-specific guides.
+> As dedicated guides are created for each area (testing, architecture, naming, etc.),
+> the corresponding sections here will be replaced with links.
+> See the [`dev-guidelines`](https://github.com/alexey-sergeev-bot-20260224/dev-guidelines) repository for the full collection.
+
 This document covers JVM-based applications and services written in Java, Groovy, or Kotlin, using libraries and frameworks such as Spring, Hibernate, and JDBC.
 
 ---
@@ -185,17 +190,9 @@ const val CORE_POOL_SIZE_FOUR = 3          // name lies about the value
 
 ### Tests
 
-**Unit tests** — test one class in isolation with mocked collaborators. No real database, no real HTTP, no Spring context.
-
-Naming: `XxxTest` (JUnit) or `XxxSpec` (Spock).
-
-**Integration tests** — test with real infrastructure: actual database (e.g. Testcontainers), real Spring context, real HTTP client stubs (e.g. WireMock).
-
-Naming: insert `Integration` before the suffix — `XxxIntegrationTest` (JUnit) or `XxxIntegrationSpec` (Spock).
-
-The suffix follows the framework, not the language. A Groovy class using JUnit is still `XxxTest`.
-
-Test support classes (base classes, builders, fixtures, utilities) should be named descriptively: `BaseIntegrationSpec`, `TransferTestDataBuilder`, `SecurityTestUtils`. Never `TestHelper` or `Utils`.
+> Testing guidelines have been moved to dedicated documents:
+> - [Developer Testing Guide](testing/DEVELOPER_GUIDE.md) — how to write good unit and integration tests
+> - [Reviewer Testing Guide](testing/REVIEWER_GUIDE.md) — how to evaluate tests in PRs
 
 ### Other Suffixes
 
@@ -288,3 +285,4 @@ The result is that domain boundaries erode. A `PaymentService` starts importing 
 | 2026-03-03 | Alexey Sergeev | Renamed document to "Synder Backend Development Guidelines". |
 | 2026-03-03 | Alexey Sergeev | Added Other Suffixes sub-section to Naming Conventions. |
 | 2026-03-03 | Alexey Sergeev | Added Tests and Other Suffixes sub-sections to Naming Conventions. |
+| 2026-03-13 | Alexey Sergeev | Added decomposition notice. Replaced Tests sub-section with links to dedicated testing guides (Developer Guide, Reviewer Guide). |
