@@ -9,20 +9,19 @@ For human developers and AI agents alike.
 ```
 dev-guidelines/
 ├── README.md                          # This file
+├── DEV_RULES.md                       # Index — links to all topic-specific guides
+│
+├── architecture/                      # Architecture decisions and patterns
+│   ├── DEVELOPER_GUIDE.md             # How to structure code and design modules
+│   └── REVIEWER_GUIDE.md              # How to evaluate structure and naming in PRs
 │
 ├── testing/                           # Everything about testing
 │   ├── DEVELOPER_GUIDE.md             # How to write tests (for developers)
 │   ├── REVIEWER_GUIDE.md              # How to review tests (for reviewers)
-│   ├── unit/                          # Unit testing specifics
-│   │   └── (future: framework-specific guides, patterns, examples)
-│   └── integration/                   # Integration testing specifics
-│       └── (future: DB testing, API testing, Docker-based tests)
+│   └── DECISIONS.md                   # Testing decisions and rationale
 │
 ├── coding-standards/                  # Code style and conventions
-│   └── (future: naming, architecture, language-specific rules)
-│
-├── architecture/                      # Architecture decisions and patterns
-│   └── (future: ADRs, service design, data model guidelines)
+│   └── (future: language-specific rules)
 │
 ├── onboarding/                        # Getting started guides
 │   └── (future: local setup, repo overview, tooling)
