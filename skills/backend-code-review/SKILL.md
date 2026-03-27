@@ -8,6 +8,10 @@ metadata: { "openclaw": { "emoji": "🔍", "requires": { "bins": ["gh", "curl"] 
 
 Review JVM backend PRs using a structured multi-pass approach covering architecture, naming, coupling, abstraction, and test quality.
 
+## Usage Note
+
+Treat this as a **skill guide**, not a shell command. Do **not** run `/backend-code-review` in a terminal. Instead, read and follow the steps in this SKILL.md.
+
 ## Arguments
 
 | Flag | Default | Description |
