@@ -34,14 +34,40 @@ gh pr view <PR-NUMBER> -R <OWNER/REPO> --json title,body,files,additions,deletio
 
 Read the PR description for linked tickets, business context, and intent.
 
-### Step 2 — Architecture Review (4 passes)
+### Step 2 — Architecture Review (5 passes)
 
-Read `{baseDir}/../../architecture/REVIEWER_GUIDE.md` and follow its 4-pass structure:
+Read `{baseDir}/../../architecture/REVIEWER_GUIDE.md` and follow its 5-pass structure:
 
 1. **Structure** — package placement, domain module organization, Grails anti-pattern detection
 2. **Naming** — service impl naming (Jpa/Default, never Impl), entity naming, constants, packages
-3. **Coupling** — import analysis, dependency direction, cross-module violations, circular deps
-4. **Abstraction** — premature extraction, shared/common abuse, interface necessity, Rule of Three
+3. **Variable & Method Hygiene** — apply Fowler's Extract/Inline Variable test, flag long methods
+4. **Coupling** — import analysis, dependency direction, cross-module violations, circular deps
+5. **Abstraction** — premature extraction, shared/common abuse, interface necessity, Rule of Three
+
+#### Pass 3 — Variable & Method Hygiene
+
+Apply Fowler's Extract Variable vs Inline Variable test to long methods:
+
+**Inline candidates** (flag as non-blocking):
+- Variable assigned from a simple getter and the getter name already self-documents
+  (`quantityOfProduct = line.getQuantity()` → just use `line.getQuantity()`)
+- Variable used only once
+- Variable name is essentially the same as the method name
+
+**Keep candidates** (don't flag):
+- Variable assigned from a computed/constructed expression (`new Money(...)`, builder patterns)
+- Variable that names a concept the raw expression doesn't convey
+- Variable used 3+ times AND the expression is non-trivial
+
+**Long method signals:**
+- `@SuppressWarnings("MethodLength")` or equivalent → always flag
+- Method doing N distinct jobs → propose Extract Method decomposition with concrete sketch
+- \>10 local variables in a single method → likely decomposition candidate
+
+**Git history check** (when method is >100 lines):
+- Run `git log --oneline --follow` on the file
+- Check if the method grew incrementally (accretive pattern) vs was designed long
+- Note in review if the pattern was inherited, not designed
 
 ### Step 3 — Test Review (3 passes)
 
@@ -71,6 +97,9 @@ Organize findings by severity:
 - Naming improvements on existing code
 - Minor test smell cleanup
 - Migration opportunities
+- Shared utility naming: methods in `*Util` / shared classes that encode domain rules need
+  precise names. Flag generic names (`build*`, `create*`, `process*`) when the method does
+  something specific. Propose rename with Javadoc if the method will be used across 3+ services.
 
 **Positive feedback:**
 - Good patterns worth acknowledging
