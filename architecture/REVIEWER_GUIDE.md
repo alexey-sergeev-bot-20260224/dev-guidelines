@@ -354,6 +354,19 @@ Copy this into your review workflow:
 
 ---
 
+## 9. Repo-Specific Review Notes
+
+Some repositories have additional review considerations beyond the general rules above.
+Check for a repo-specific file before starting the review:
+
+| Repository | File | Key Topics |
+|---|---|---|
+| `SynderAccounting/accounting` | [repo-specific/accounting.md](repo-specific/accounting.md) | JE metadata propagation, accounting equation in code |
+
+When reviewing a PR, load the corresponding repo-specific file (if it exists) during Step 1 (Gather Context).
+
+---
+
 ## Revision History
 
 | Date | Authors | Changes |
