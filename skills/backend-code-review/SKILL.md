@@ -170,6 +170,8 @@ If the PR is very large (guideline: >1000 changed lines across many files, or >1
 - Recommend splitting or staged follow-up review if the PR covers multiple independent concerns.
 - Do not pretend the review was exhaustive when it was not.
 
+If a PR exceeds ~500 lines of logic (excluding tests, migrations, and generated code), include a **Review Methodology** note in the summary: state that review focused on high-risk areas, and recommend splitting for future changes to maintain review confidence. Do not create a standalone finding for PR size alone.
+
 ---
 
 ## Step 2 — Summarize Intent and Risk
@@ -282,7 +284,15 @@ Mandatory pass for backend PRs. Scan each subsection; skip subsections not relev
 - [ ] Rollback is safe (expand-contract pattern where needed)
 - [ ] No deployment-order dependency between migration and code
 
-### 4.3 Concurrency and Idempotency
+### 4.3 N+1 and Loop-Based Resource Abuse
+
+- [ ] No repository/service calls inside loops (`for`, `each`, `collect`, streams)
+- [ ] No lazy-collection access inside loops without `@BatchSize` or `JOIN FETCH`
+- [ ] No external API calls inside loops without batching
+
+**Severity:** `blocker` for unbounded or high-volume data; `major` for bounded/low-volume sets.
+
+### 4.4 Concurrency and Idempotency
 
 - [ ] No duplicate processing risk
 - [ ] Race conditions checked (especially for check-then-act patterns)
@@ -291,17 +301,18 @@ Mandatory pass for backend PRs. Scan each subsection; skip subsections not relev
 - [ ] Out-of-order events are handled
 - [ ] Transaction + async interaction is correct
 - [ ] No catch-and-recover on constraint violations (in JPA/Hibernate contexts, catching constraint exceptions corrupts the session — use check-before-insert instead)
+- [ ] No long-running external HTTP calls inside `@Transactional` methods (holds DB connections open, causes pool exhaustion under load)
 
-### 4.4 External Integration Safety
+### 4.5 External Integration Safety
 
 - [ ] Timeouts are configured
 - [ ] Retries are bounded and safe
 - [ ] Partial failure is handled
 - [ ] Response validation is present
-- [ ] Idempotency keys are used where needed
+- [ ] External state-mutating writes include an idempotency key/header for retry safety
 - [ ] Remote failures are logged
 
-### 4.5 Operational Safety
+### 4.6 Operational Safety
 
 - [ ] Metrics exist for critical new behavior
 - [ ] Logs are useful but not noisy
@@ -309,7 +320,21 @@ Mandatory pass for backend PRs. Scan each subsection; skip subsections not relev
 - [ ] Config is discoverable
 - [ ] Deployment notes exist if non-trivial
 
-### 4.6 Security and Privacy
+### 4.7 Supportability
+
+- [ ] New error paths log sufficient context for debugging (userId, orderId, correlationId or equivalent)
+- [ ] Critical failure points are not silently swallowed without actionable log output
+
+**Severity:** `minor` — flag only when a new error path has zero useful context.
+
+### 4.8 Caching and Data Isolation
+
+- [ ] If `@Cacheable` or manual caching is added/modified: cache is invalidated on all write paths
+- [ ] Cache key is tenant-specific (no cross-tenant data leaks)
+- [ ] Cache TTL is appropriate for the data's mutation rate
+- [ ] Queries and logic always filter by `tenantId` / `organizationId` / `ownerId` where multi-tenant isolation is required
+
+### 4.9 Security and Privacy
 
 - [ ] Auth/authz effects are correct
 - [ ] Tenant isolation is preserved
@@ -397,6 +422,8 @@ Read `{baseDir}/../../architecture/REVIEWER_GUIDE.md` and follow its 5-pass stru
 5. **Abstraction** — premature extraction, shared/common abuse, interface necessity, Rule of Three
 
 **Prioritization rule:** If blocker/major correctness, safety, migration, or test findings already exist from earlier steps, keep architecture/naming/hygiene comments minimal unless they materially contribute to the same risk. Deep hygiene feedback is most valuable when it improves correctness, clarity, testability, or maintenance of code introduced in this PR.
+
+**Hygiene severity adjustment:** Downgrade variable naming and style findings to `nit` for pre-existing code. Exception: if new code introduces a naming violation that sets a bad architectural precedent (e.g., a public-facing `XxxImpl` or a package violation that leaks internals across modules), maintain as `major`/`minor` per repo conventions.
 
 ### Pass 3 — Variable & Method Hygiene
 
