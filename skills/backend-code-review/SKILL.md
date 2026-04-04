@@ -40,12 +40,16 @@ Read the PR description, title, branch name, and commit messages for intent.
 
 Extract ticket IDs from the PR title, branch name, and body. Look for patterns: `SD-\d+`, `SET-\d+`, `SB-\d+`, or any `[A-Z]+-\d+` Jira key.
 
-If a ticket ID is found:
+If a ticket ID is found, fetch it via the Jira REST API:
 
 ```bash
-# Fetch ticket description + recent comments
-scripts/jira.sh <TICKET-ID> --comments 5
+# Fetch ticket with description and recent comments
+curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
+  "${JIRA_URL}/rest/api/3/issue/<TICKET-ID>?fields=summary,status,description,comment,labels,priority" \
+  -H "Accept: application/json"
 ```
+
+**Required environment:** `JIRA_URL`, `JIRA_EMAIL`, `JIRA_TOKEN` must be available (e.g. from a config file or environment variables).
 
 From the ticket, extract:
 - **Acceptance criteria** — what "done" looks like from the business side
