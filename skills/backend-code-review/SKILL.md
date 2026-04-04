@@ -24,6 +24,8 @@ Treat this as a **skill guide**, not a shell command. Do **not** run `/backend-c
 
 ### Step 1 — Gather Context
 
+#### 1.1 PR Data
+
 ```bash
 # Fetch PR diff
 gh pr diff <PR-NUMBER> -R <OWNER/REPO>
@@ -32,7 +34,31 @@ gh pr diff <PR-NUMBER> -R <OWNER/REPO>
 gh pr view <PR-NUMBER> -R <OWNER/REPO> --json title,body,files,additions,deletions
 ```
 
-Read the PR description for linked tickets, business context, and intent.
+Read the PR description, title, branch name, and commit messages for intent.
+
+#### 1.2 Jira / Ticket Context
+
+Extract ticket IDs from the PR title, branch name, and body. Look for patterns: `SD-\d+`, `SET-\d+`, `SB-\d+`, or any `[A-Z]+-\d+` Jira key.
+
+If a ticket ID is found:
+
+```bash
+# Fetch ticket description + recent comments
+scripts/jira.sh <TICKET-ID> --comments 5
+```
+
+From the ticket, extract:
+- **Acceptance criteria** — what "done" looks like from the business side
+- **Scope boundaries** — what's explicitly in/out of scope
+- **Business rules** — domain logic the code must implement
+- **Edge cases mentioned** — scenarios the author should have handled
+
+Use this context throughout the review:
+- **Step 3 (Implementation Correctness)**: verify the code satisfies acceptance criteria and business rules, not just that it compiles and passes tests
+- **Step 4 (Simplification)**: distinguish intentional complexity (driven by business rules) from over-engineering
+- **Step 5 (Tests)**: check that test scenarios cover the ticket's edge cases and acceptance criteria
+
+If no ticket ID is found (e.g., `NO-TASK` prefix or pure refactor), note it and proceed — not every PR has a ticket, and that's fine.
 
 ### Step 2 — Architecture Review (5 passes)
 
