@@ -1,12 +1,12 @@
 ---
 name: backend-code-review
-description: "Review backend PRs (Java/Groovy/Kotlin, Spring/Hibernate/JPA/Grails) for correctness, safety, tests, architecture, naming, coupling, abstraction, and simplification. Use when: (1) reviewing a GitHub PR for a JVM backend project, (2) asked to do a code review, (3) evaluating test coverage or test quality in a PR, (4) checking architecture or naming conventions. Usage: /backend-code-review <PR-URL-or-owner/repo#number> [--focus correctness|risk|tests|architecture|naming|simplification|docs|all] [--strict] [--rereview auto]"
+description: "Review backend pull requests for JVM services with priority on correctness, safety, migrations, tests, architecture, and maintainability. Use for GitHub PR review, re-review after author updates, and evaluation of backend changes affecting contracts, persistence, integrations, concurrency, or test quality."
 metadata: { "openclaw": { "emoji": "🔍", "requires": { "bins": ["gh", "curl"] } } }
 ---
 
 # Backend Code Review
 
-Review JVM backend PRs using a structured multi-pass approach.
+Review backend PRs using a structured multi-pass process.
 
 **Priority order:**
 1. Intent and correctness
@@ -28,7 +28,7 @@ Treat this as a **skill guide**, not a shell command. Do **not** run `/backend-c
 |------|---------|-------------|
 | (positional) | required | PR URL or `owner/repo#number` |
 | `--focus` | `all` | Review scope: `all`, `correctness`, `risk`, `tests`, `architecture`, `naming`, `simplification`, `docs` |
-| `--strict` | `false` | Report only `blocker` and `major` findings |
+| `--strict` | `false` | Report only findings that materially affect merge confidence (usually `blocker` and `major`) |
 | `--rereview` | `auto` | If prior review discussion exists, treat as re-review |
 
 ## Review Principles
@@ -49,7 +49,7 @@ Every finding must carry one severity:
 | Severity | Meaning |
 |---|---|
 | **blocker** | Must be fixed before merge: correctness, safety, security, data integrity, contract, migration, or critical test issue |
-| **major** | Important issue that may not block merge, but creates substantial maintainability, operability, or test risk |
+| **major** | Important issue that creates substantial maintainability, operability, or test risk; may block merge when it materially reduces confidence in safe deployment |
 | **minor** | Legitimate improvement; should not block merge |
 | **nit** | Small polish issue |
 | **question** | Reviewer needs clarification before concluding |
@@ -61,9 +61,9 @@ Every review must end with one explicit verdict:
 
 | Verdict | When to use |
 |---|---|
-| **approve** | No unresolved blockers or majors |
+| **approve** | No unresolved blocker or major findings |
 | **approve with nits** | Only `minor`, `nit`, or `pre-existing` findings remain |
-| **request changes** | Any unresolved `blocker` |
+| **request changes** | Any unresolved `blocker`, or any `major` that materially reduces confidence in safe merge (e.g., high production risk, correctness ambiguity, operational gaps, or insufficient tests for high-risk behavior) |
 | **insufficient context to approve safely** | Cannot review confidently due to missing critical context |
 
 ---
@@ -83,8 +83,6 @@ gh pr view <PR-NUMBER> -R <OWNER/REPO> --json title,body,files,additions,deletio
 ```
 
 Read the PR description, title, branch name, and commit messages for intent.
-
-If the PR is very large, note that immediately and prioritize high-risk files first.
 
 ### 1.2 Jira / Ticket Context
 
@@ -133,7 +131,7 @@ For each finding from the previous review round, classify the author's response:
 | **Ignored** | No response, code unchanged | Re-raise if the finding still exists in the current diff |
 
 **Guidelines:**
-- Authors have domain knowledge the reviewer lacks. Give their explanations genuine consideration — but not blind acceptance. If an explanation contradicts established patterns (DEV_RULES.md) or hides a real bug, flag it anyway.
+- Authors have domain knowledge the reviewer lacks. Give their explanations genuine consideration — but not blind acceptance. If an explanation contradicts established patterns or hides a real bug, flag it anyway.
 - When re-raising a disputed finding, acknowledge the author's point and explain why the concern still stands. Don't just repeat the original comment verbatim.
 - Carry these classifications into Step 9 (Verify Findings) — a finding already explained by the author with valid reasoning is a false positive.
 
@@ -149,6 +147,28 @@ Load project conventions after understanding the change intent:
 - Repo-specific files under `{baseDir}/../../architecture/repo-specific/`, if present
 
 Treat repository-specific guidance as strong constraints where explicitly established, heuristics elsewhere. Do not let naming/package rules overshadow correctness and safety review.
+
+### 1.5 Author Context Expectations
+
+For medium/high-risk PRs, the reviewer should expect the PR to provide:
+- change intent and linked ticket/business context
+- migration notes (if DB changes are involved)
+- rollout/deployment notes (if non-trivial)
+- risky areas the author is aware of
+- test notes (what was tested, what wasn't)
+- known limitations or planned follow-ups
+
+If a risky PR lacks essential review context, request clarification early instead of pretending to review with high confidence.
+
+### 1.6 Oversized PR Behavior
+
+If the PR is very large (guideline: >1000 changed lines across many files, or >15 files with non-trivial logic):
+
+- State that exhaustive review confidence is reduced.
+- Review highest-risk files first: data, money, auth, migrations, integrations.
+- State explicitly in the review summary which areas were reviewed deeply and which were reviewed lightly or skipped.
+- Recommend splitting or staged follow-up review if the PR covers multiple independent concerns.
+- Do not pretend the review was exhaustive when it was not.
 
 ---
 
@@ -270,7 +290,7 @@ Mandatory pass for backend PRs. Scan each subsection; skip subsections not relev
 - [ ] Retry is safe (idempotent handlers/jobs/webhooks)
 - [ ] Out-of-order events are handled
 - [ ] Transaction + async interaction is correct
-- [ ] Hibernate catch-and-recover anti-pattern is absent (catching constraint violations corrupts session — use check-before-insert)
+- [ ] No catch-and-recover on constraint violations (in JPA/Hibernate contexts, catching constraint exceptions corrupts the session — use check-before-insert instead)
 
 ### 4.4 External Integration Safety
 
@@ -299,7 +319,7 @@ Mandatory pass for backend PRs. Scan each subsection; skip subsections not relev
 - [ ] No overexposure in APIs
 - [ ] Permission checks are present where needed
 
-If the change is security-sensitive and confidence is low, explicitly recommend specialist review.
+If the change is security-sensitive and confidence is low, escalate per the Escalation Rules below.
 
 ---
 
@@ -344,7 +364,7 @@ Detect over-engineering — code that works but is more complex than necessary.
 | Connection pooling overkill | Complex pooling for single-connection scenarios | Flag — simplify |
 | Manual batching | Hand-rolled batch processing when framework provides it | Flag — use framework support |
 
-**Severity:** Simplification findings are typically **minor** or **nit** unless the over-engineering introduces a maintenance hazard or obscures a bug.
+**Severity:** Simplification findings are usually **minor** or **nit**, unless the abstraction actively obscures correctness, safe operation, or testability.
 
 ---
 
@@ -371,10 +391,12 @@ Do not demand tests for trivial delegation/getters/setters.
 Read `{baseDir}/../../architecture/REVIEWER_GUIDE.md` and follow its 5-pass structure:
 
 1. **Structure** — package placement, domain module organization, Grails anti-pattern detection
-2. **Naming** — service impl naming (Jpa/Default, never Impl), entity naming, constants, packages
+2. **Naming** — service impl naming, entity naming, constants, packages
 3. **Variable & Method Hygiene** — apply Fowler's Extract/Inline Variable test, flag long methods
 4. **Coupling** — import analysis, dependency direction, cross-module violations, circular deps
 5. **Abstraction** — premature extraction, shared/common abuse, interface necessity, Rule of Three
+
+**Prioritization rule:** If blocker/major correctness, safety, migration, or test findings already exist from earlier steps, keep architecture/naming/hygiene comments minimal unless they materially contribute to the same risk. Deep hygiene feedback is most valuable when it improves correctness, clarity, testability, or maintenance of code introduced in this PR.
 
 ### Pass 3 — Variable & Method Hygiene
 
@@ -451,6 +473,7 @@ Summary:
 - Intent: <1-2 sentences>
 - Main risks reviewed: <comma-separated>
 - Confidence: <high | medium | low>
+- Coverage: <what was reviewed deeply vs lightly, if applicable>
 - Missing context: <none or brief note>
 ```
 
@@ -466,7 +489,7 @@ Use the structured finding template for every comment. Each finding MUST include
 🔍 Issue: <clear description of what's wrong>
 💥 Impact: <how this affects the code — bugs, maintenance, performance, correctness>
 🧾 Evidence: <brief concrete reasoning tied to code context>
-💡 Fix: <specific, actionable suggestion>
+💡 Suggested change: <specific actionable fix or clarifying question>
 ```
 
 For `positive feedback`, use:
@@ -503,13 +526,13 @@ For `positive feedback`, use:
 🔍 Issue: New `processRefund()` method is registered as `@Transactional(readOnly = true)` but performs a write operation (updates refund status).
 💥 Impact: Write will silently fail or throw on some JPA providers; data corruption risk in production.
 🧾 Evidence: Line 148 calls `refundRepository.save(refund)` inside the read-only transaction.
-💡 Fix: Change to `@Transactional` (remove `readOnly = true`), or split the read and write into separate transactional methods.
+💡 Suggested change: Change to `@Transactional` (remove `readOnly = true`), or split the read and write into separate transactional methods.
 ```
 
 ### 10.3 Strict Mode
 
 If `--strict` is enabled:
-- Include only `blocker` and `major` findings
+- Report only findings that materially affect merge confidence (usually `blocker` and `major`; include a critical `question` if it blocks confident review)
 - Still include final verdict and summary
 - Optionally include at most 1-2 strong positive notes
 
@@ -543,6 +566,31 @@ Bad:
 - Do not demand large refactors inside a small PR unless the current design is genuinely unsafe.
 - Do not confuse local conventions with universal correctness rules.
 - Do not produce dozens of low-value comments — prefer fewer strong findings.
+
+### Do Not Comment on These Unless Materially Impactful
+
+- Formatting / linter-only issues
+- Personal naming taste (as opposed to enforced repo conventions)
+- Speculative future abstractions ("what if someday...")
+- Unrelated legacy cleanup
+- Broad refactor wishes outside the PR scope
+- Comments already handled by automated tooling
+- Style issues that do not affect readability or policy compliance
+
+---
+
+## Escalation Rules
+
+Recommend specialist or additional review when confidence is low in any of these areas:
+
+- Auth/authz or security-sensitive changes
+- Complex data migrations (especially irreversible or large-scale)
+- Performance-sensitive SQL / query paths
+- Accounting invariants or money movement logic
+- Distributed concurrency / retries / deduplication behavior
+- Public API changes with multiple consumers
+
+When escalating, state what specific aspect needs specialist attention and why.
 
 ---
 
@@ -594,19 +642,33 @@ Bad:
 
 ---
 
-## Key Rules
+## Synder-Specific Conventions
 
-- **Technology stack**: Java, Groovy, Kotlin. Frameworks: Spring, Hibernate, JPA, Grails.
-- **Naming**: `JpaXxx` / `JdbcXxx` / `HttpXxx` / `DefaultXxx` — NEVER `XxxImpl`.
-- **Entity naming**: `XxxMapping` in accounting repo, `XxxEntity` in others.
+The following conventions apply to Synder repositories. They are enforced where the repo's `DEV_RULES.md` or `REVIEWER_GUIDE.md` explicitly establishes them.
+
+**How to apply these rules:**
+- Treat as **blocking** when: the repo enforces the convention, the violation is introduced by this PR, and fixing it is proportionate to the PR scope.
+- Treat as **major/minor** when: the convention is established but the violation is pre-existing or the fix would be disproportionate to the PR scope.
+- Do not treat convention violations as correctness defects unless they actually cause incorrect behavior.
+
+### Naming
+
+- Prefer `JpaXxx` / `JdbcXxx` / `HttpXxx` / `DefaultXxx` over `XxxImpl`. The prefix communicates implementation semantics; `Impl` does not. In repos that enforce this, introducing a new `XxxImpl` is normally a convention violation.
+- **Entity naming**: `XxxMapping` in accounting repos, `XxxEntity` in others.
+- **Shared utility naming**: Methods in `*Util` / shared classes that encode domain rules should have precise names. Flag generic names (`build*`, `create*`, `process*`) when the method does something domain-specific. Propose rename with Javadoc if the method will be used across 3+ services.
+
+### Architecture
+
 - **Domain model**: Plain objects, no JPA annotations. Separate from JPA entities.
 - **Package structure**: Domain-first (`{domain}/model/`, `{domain}/service/`, `{domain}/jpa/`), not layer-first.
 - **Cross-module**: Only through public API (service interface + domain model). Never import `.jpa.` from another module.
-- **Tests**: Output-based > state-based > communication-based. Never assert on stubs. Hardcode expected values.
+
+### Tests
+
+- **Style preference**: Output-based > state-based > communication-based. Never assert on stubs. Hardcode expected values.
 - **Mocks**: Stub for data, Mock for boundary interactions. >8 mocks = design smell.
 - **Spock**: `@Unroll` on parameterized tests, `given/when/then` structure, `*Spec` naming.
 - **JUnit 5**: Backtick method names, `@Nested` groups, `*Test` naming.
-- **Shared utility naming**: Methods in `*Util` / shared classes that encode domain rules need precise names. Flag generic names (`build*`, `create*`, `process*`) when the method does something specific. Propose rename with Javadoc if the method will be used across 3+ services.
 
 ---
 
