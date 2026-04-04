@@ -64,6 +64,31 @@ Use this context throughout the review:
 
 If no ticket ID is found (e.g., `NO-TASK` prefix or pure refactor), note it and proceed — not every PR has a ticket, and that's fine.
 
+#### 1.3 Prior Review Context (re-reviews only)
+
+Skip this step on first review. On re-reviews (2nd+ round), gather the full PR conversation before running any review passes.
+
+```bash
+# Fetch PR comments (general + inline review comments)
+gh pr view <PR-NUMBER> -R <OWNER/REPO> --json comments,reviews,reviewThreads
+```
+
+For each finding from the previous review round, classify the author's response:
+
+| Classification | Meaning | Action |
+|---|---|---|
+| **Resolved** | Author changed the code to address the finding | Drop — don't re-raise |
+| **Explained** | Author provided valid domain reasoning why the current code is correct | Accept — don't re-raise. Note the explanation for your own context |
+| **Disputed** | Author disagrees but reasoning is weak or doesn't address the core concern | Re-evaluate with new context. Re-raise with adjusted framing if still valid |
+| **Ignored** | No response, code unchanged | Re-raise if the finding still exists in the current diff |
+
+**Guidelines:**
+- Authors have domain knowledge the reviewer lacks. Give their explanations genuine consideration — but not blind acceptance. If an explanation contradicts established patterns (DEV_RULES.md) or hides a real bug, flag it anyway.
+- When re-raising a disputed finding, acknowledge the author's point and explain why the concern still stands. Don't just repeat the original comment verbatim.
+- Carry these classifications into Step 8 (Verify Findings) — a finding already explained by the author with valid reasoning is a false positive.
+
+**Output:** A list of prior findings with their classifications. Use this as a filter throughout Steps 2–7 to avoid duplicate work.
+
 ### Step 2 — Architecture Review (5 passes)
 
 Read `{baseDir}/../../architecture/REVIEWER_GUIDE.md` and follow its 5-pass structure:
